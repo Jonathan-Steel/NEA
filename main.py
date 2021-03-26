@@ -156,10 +156,13 @@ class Game:
         # Cursor at lower than car
         if delta_x > 0 and delta_y < 0:
             theta = 2 * math.pi + math.atan(delta_y/delta_x)
+            # theta = math.atan(delta_y / delta_x)
         if delta_x == 0 and delta_y < 0:
             theta = 1.5 * math.pi
+            # theta = -(0.5 * math.pi)
         if delta_x < 0 and delta_y < 0:
             theta = math.pi + math.atan(delta_y/delta_x)
+            # theta = - (math.pi - math.atan(delta_y/delta_x))
         
 
         print(f'delta_x = {delta_x}, delta_y = {delta_y}, theta = {theta * 180/math.pi}')
@@ -175,6 +178,8 @@ class Game:
         self.tilemap.preview()
 
         self.all_sprites.draw(self.screen)
+
+        self.display_text(f"a = ({self.player.a[0]}, {self.player.a[1]}), v = ({int(self.player.v[0])}, {int(self.player.v[1])}), s = ({int(self.player.s[0])}, {int(self.player.s[1])})", colour=BLACK, size=14)
 
         # After drawing everything flip the display
         pygame.display.flip()
