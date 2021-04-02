@@ -134,40 +134,7 @@ class Game:
     def update(self):
         self.all_sprites.update()
 
-        delta_x = self.mouse_position[0] - int(self.player.s[0])
-        delta_y = (self.mouse_position[1] - int(self.player.s[1])) * -1
-
-        theta = None
-
-        # Cursor higher than car
-        if delta_x > 0 and delta_y > 0:
-            theta = math.atan(delta_y/delta_x)
-        if delta_x == 0 and delta_y > 0:
-            theta = (math.pi / 2)
-        if delta_x < 0 and delta_y > 0:
-            theta = ((math.pi / 2) - (math.atan(delta_y/delta_x) * -1)) + (math.pi / 2)
-
-        # Cursor at car's height
-        if delta_x >= 0 and delta_y == 0:
-            theta = 0
-        if delta_x < 0 and delta_y == 0:
-            theta = math.pi
-
-        # Cursor at lower than car
-        if delta_x > 0 and delta_y < 0:
-            theta = 2 * math.pi + math.atan(delta_y/delta_x)
-            # theta = math.atan(delta_y / delta_x)
-        if delta_x == 0 and delta_y < 0:
-            theta = 1.5 * math.pi
-            # theta = -(0.5 * math.pi)
-        if delta_x < 0 and delta_y < 0:
-            theta = math.pi + math.atan(delta_y/delta_x)
-            # theta = - (math.pi - math.atan(delta_y/delta_x))
-        
-
-        print(f'delta_x = {delta_x}, delta_y = {delta_y}, theta = {theta * 180/math.pi}')
-
-        self.player.accelerate(theta)
+        # self.player.accelerate()
 
     # Draws objects to screen
     def draw(self):
@@ -179,7 +146,9 @@ class Game:
 
         self.all_sprites.draw(self.screen)
 
-        self.display_text(f"a = ({self.player.a[0]}, {self.player.a[1]}), v = ({int(self.player.v[0])}, {int(self.player.v[1])}), s = ({int(self.player.s[0])}, {int(self.player.s[1])})", colour=BLACK, size=14)
+        pygame.draw.rect(self.screen, RED, self.player.rect, 3)
+
+        self.display_text(f"a = ({self.player.a[0]}, {self.player.a[1]}), v = ({int(self.player.v[0])}, {int(self.player.v[1])}), s = ({int(self.player.s[0])}, {int(self.player.s[1])}), theta = {self.player.theta}", colour=BLACK, size=14)
 
         # After drawing everything flip the display
         pygame.display.flip()
@@ -193,7 +162,7 @@ class Game:
         #     for y in range(self.tilemap.height):
         #         self.tilemap.change_tile(x, y)
 
-        print(self.tilemap.tilemap)
+        # print(self.tilemap.tilemap)
         
         self.tilemap.display_tiles()
 
@@ -229,6 +198,43 @@ class Game:
                 if event.type == pygame.KEYUP:
                     key_not_pressed = False
 
+    def angle_between_player_and_mouse(self):
+
+        ## Player to Mouse Pointer Angle ##
+
+        delta_x = self.mouse_position[0] - int(self.player.s[0])
+        delta_y = (self.mouse_position[1] - int(self.player.s[1])) * -1
+
+        theta = None
+
+        # Cursor higher than car
+        if delta_x > 0 and delta_y > 0:
+            theta = math.atan(delta_y/delta_x)
+        if delta_x == 0 and delta_y > 0:
+            theta = (math.pi / 2)
+        if delta_x < 0 and delta_y > 0:
+            theta = ((math.pi / 2) - (math.atan(delta_y/delta_x) * -1)) + (math.pi / 2)
+
+        # Cursor at car's height
+        if delta_x >= 0 and delta_y == 0:
+            theta = 0
+        if delta_x < 0 and delta_y == 0:
+            theta = math.pi
+
+        # Cursor at lower than car
+        if delta_x > 0 and delta_y < 0:
+            theta = 2 * math.pi + math.atan(delta_y/delta_x)
+            # theta = math.atan(delta_y / delta_x)
+        if delta_x == 0 and delta_y < 0:
+            theta = 1.5 * math.pi
+            # theta = -(0.5 * math.pi)
+        if delta_x < 0 and delta_y < 0:
+            theta = math.pi + math.atan(delta_y/delta_x)
+            # theta = - (math.pi - math.atan(delta_y/delta_x))
+        
+        print(f'delta_x = {delta_x}, delta_y = {delta_y}, theta = {theta * 180/math.pi}')
+
+        return theta
 
 game = Game()
 
