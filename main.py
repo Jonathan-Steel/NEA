@@ -7,13 +7,13 @@ from settings import *
 from library import *
 from sprites import *
 
-TILES = [pygame.image.load('assets/land_grass04.png'),
-pygame.image.load('assets/road_asphalt01.png'),
-pygame.image.load('assets/road_asphalt02.png'),
-pygame.image.load('assets/road_asphalt03.png'),
-pygame.transform.rotate(pygame.image.load('assets/road_asphalt03.png'), 90),
-pygame.transform.rotate(pygame.image.load('assets/road_asphalt03.png'), 180),
-pygame.transform.rotate(pygame.image.load('assets/road_asphalt03.png'), 270)]
+# TILES = [pygame.image.load('assets/land_grass04.png'),
+# pygame.image.load('assets/road_asphalt01.png'),
+# pygame.image.load('assets/road_asphalt02.png'),
+# pygame.image.load('assets/road_asphalt03.png'),
+# pygame.transform.rotate(pygame.image.load('assets/road_asphalt03.png'), 90),
+# pygame.transform.rotate(pygame.image.load('assets/road_asphalt03.png'), 180),
+# pygame.transform.rotate(pygame.image.load('assets/road_asphalt03.png'), 270)]
 
 class Tilemap:
 
@@ -79,16 +79,31 @@ class Game:
 
         self.tilemap = Tilemap(tile_width=32, tile_height=32, width=48, height=27, game=self)
 
+    def main_menu(self):
+        pass
+    
     # Starts a new game (round)
     def new(self):
         # Initialises a general sprite group
         self.all_sprites = pygame.sprite.Group()
+        # self.menu_sprites = pygame.sprite.Group()
+        self.menu_buttons = []
+        self.game_sprites = pygame.sprite.Group()
+
+        # self.main_menu_header = get_text(text='NEA', size=128, y=300)
+        self.map_editor_button = Button(game=self, x=(WIDTH // 2 - 100), y=HEIGHT // 2, text="Map Editor")
+        self.menu_buttons.append(self.map_editor_button)
+
+        self.start_game_button = Button(game=self, x=(WIDTH // 2 + 100), y=HEIGHT // 2, text="Start Game")
+        self.menu_buttons.append(self.start_game_button)
 
         self.player = Player(self)
-
         self.all_sprites.add(self.player)
+        self.game_sprites.add(self.player)
 
         self.mouse_position = (0, 0)
+
+        self.mode = "Main Menu"
 
         self.run()
 
@@ -122,7 +137,13 @@ class Game:
             if event.type == pygame.MOUSEMOTION:
                 self.mouse_position = event.pos
 
-            # if event.type == pygame.MOUSEBUTTONUP:
+            if event.type == pygame.MOUSEBUTTONUP:
+                if self.mode == "Main Menu":
+                    if self.map_editor_button.hover == True:
+                        self.mode = "Map Editor"
+                        # print("Hello")
+                    elif self.start_game_button.hover == True:
+                        self.mode = "Game"
                 # self.tilemap.change_tile(event.pos[0] // self.tilemap.tile_width, event.pos[1] // self.tilemap.tile_height)
 
             # if event.type == pygame.KEYDOWN:
@@ -132,30 +153,50 @@ class Game:
 
     # Updates sprites
     def update(self):
-        self.all_sprites.update()
+        if self.mode == "Main Menu":
+            self.map_editor_button.update()
+            # if self.map_editor_button.clicked:
+            #     self.map_editor_button.clicked = False
+            #     self.mode = "Map Editor"
 
-        # self.player.accelerate()
+            self.start_game_button.update()
+            # if self.start_game_button.clicked:
+            #     self.start_game_button.clicked = False
+            #     self.mode = "Game"
+            #     print(self.mode)
+
+        elif self.mode == "Game":
+            self.game_sprites.update()
 
     # Draws objects to screen
     def draw(self):
-        self.screen.fill(BLACK)
+        self.screen.fill(WHITE)
 
-        self.tilemap.display_tiles()
+        if self.mode == "Main Menu":
+            self.blit_text(*get_text(text='NEA', size=128, y=300))
 
-        self.tilemap.preview()
+            self.map_editor_button.draw(self.screen)
+            self.start_game_button.draw(self.screen)
 
-        self.all_sprites.draw(self.screen)
+            # self.menu_sprites.draw(self.screen)
 
-        pygame.draw.rect(self.screen, RED, self.player.rect, 3)
+        elif self.mode == "Game":
+            self.tilemap.display_tiles()
 
-        self.display_text(f"a = ({self.player.a[0]}, {self.player.a[1]}), v = ({int(self.player.v[0])}, {int(self.player.v[1])}), s = ({int(self.player.s[0])}, {int(self.player.s[1])}), theta = {self.player.theta}", colour=BLACK, size=14)
+            self.tilemap.preview()
+
+            self.all_sprites.draw(self.screen)
+
+            pygame.draw.rect(self.screen, RED, self.player.rect, 3)
+
+            self.blit_text(*get_text(f"a = ({self.player.a[0]}, {self.player.a[1]}), v = ({int(self.player.v[0])}, {int(self.player.v[1])}), s = ({int(self.player.s[0])}, {int(self.player.s[1])}), theta = {self.player.theta}", colour=BLACK, size=14))
 
         # After drawing everything flip the display
         pygame.display.flip()
 
     def show_start_screen(self):
 
-        self.screen.fill(BLACK)
+        self.screen.fill(WHITE)
 
         # self.tilemap.current_tile = 17
         # for x in range(self.tilemap.width):
@@ -164,10 +205,13 @@ class Game:
 
         # print(self.tilemap.tilemap)
         
-        self.tilemap.display_tiles()
+        # self.tilemap.display_tiles()
 
-        self.display_text('NEA', size=128, y=300)
-        self.display_text('Press any button to continue', y=500)
+        self.blit_text(*get_text(text='NEA', size=128, y=300))
+        self.blit_text(*get_text(text='Press any button to continue', y=500))
+
+        # new_button = Button(game=self, x=WIDTH // 2, y=HEIGHT // 2, text="Map Editor")
+        # new_button.draw(self.screen)
 
         pygame.display.flip()
 
@@ -176,15 +220,10 @@ class Game:
     def show_go_screen(self):
         pass
 
-    def display_text(self, text, colour=GREEN, size=36, x=(WIDTH/2), y=(HEIGHT/2), font='fonts/Lato-Regular.ttf'):
-        font = pygame.font.Font(font, size)
-        
-        TextSurf = font.render(text, True, colour)
+    def map_editor(self):
+        pass
 
-        TextRect = TextSurf.get_rect()
-
-        TextRect.center = (x, y)
-
+    def blit_text(self, TextSurf, TextRect):
         self.screen.blit(TextSurf, TextRect)
 
     def wait_for_key(self):
@@ -241,6 +280,8 @@ game = Game()
 game.show_start_screen()
 
 while game.running:
+
+    game.main_menu()
 
     game.new()
 

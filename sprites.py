@@ -23,7 +23,6 @@ class Player(pygame.sprite.Sprite):
 
         self.s = np.array([[WIDTH/4], [HEIGHT/2]])
         self.v = np.array([[0.0], [0.0]])
-        # self.const_a = ((DRIVING_FORCE - FRICTIONAL_FORCE) / CAR_MASS)
         self.const_a = 0
         self.a = np.array([[0.0], [0.0]])
         self.rect.center = (int(self.s[0]), int(self.s[1]))

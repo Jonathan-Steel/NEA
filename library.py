@@ -1,6 +1,7 @@
 import pygame
 import random
 import xml.etree.ElementTree as ET
+from settings import *
 
 def load_spritesheet(pngfile, xmlfile):
     original_spritesheet = pygame.image.load(pngfile)
@@ -21,3 +22,43 @@ def load_spritesheet(pngfile, xmlfile):
         textures.append(pygame.Surface.subsurface(original_spritesheet, (int(subtexture['x']), int(subtexture['y']), int(subtexture['width']), int(subtexture['height']))))
     
     return textures
+
+def get_text(text, colour=BLACK, size=36, x=(WIDTH/2), y=(HEIGHT/2), font='fonts/Lato-Regular.ttf'):
+
+    font = pygame.font.Font(font, size)
+
+    TextSurf = font.render(text, True, colour)
+
+    TextRect = TextSurf.get_rect()
+
+    TextRect.center = (x, y)
+
+    return TextSurf, TextRect
+
+class Button:
+    def __init__(self, game, x, y, fontsize=24, text="New Button", bgColor=BLACK, textColor=WHITE):
+        self.x = x
+        self.y = y
+        self.fontsize = fontsize
+        self.rawtext = text
+        self.originalColor = bgColor
+        self.bgColor = self.originalColor
+        self.textColor = textColor
+        self.game = game
+        # self.clicked = False
+        self.hover = False
+
+        self.textSurf, self.textRect = get_text(self.rawtext, colour=self.textColor, size=self.fontsize, x=self.x, y=self.y)
+
+    def draw(self, screen):
+        pygame.draw.rect(screen, self.bgColor, self.textRect, 0)
+        screen.blit(self.textSurf, self.textRect)
+
+    def update(self):
+        mouse_x, mouse_y = self.game.mouse_position
+        if mouse_x >= self.textRect.left and mouse_x <= self.textRect.right and mouse_y >= self.textRect.top and mouse_y <= self.textRect.bottom:
+            self.bgColor = RED
+            self.hover = True
+        else:
+            self.bgColor = self.originalColor
+            self.hover = False
