@@ -14,11 +14,14 @@ def load_spritesheet(pngfile, xmlfile):
 
     # dirt = pygame.Surface.subsurface(original_spritesheet, (int(textures[1]['x']), int(textures[1]['y']), int(textures[1]['width']), int(textures[1]['height'])))
     textures = []
+    # counter = 0
     for texture in root.iter():
         subtexture = texture.attrib
         if len(subtexture) <= 1:
             continue
         # print(subtexture)
+        # print(f"{counter} {subtexture['name']}")
+        # counter += 1
         textures.append(pygame.Surface.subsurface(original_spritesheet, (int(subtexture['x']), int(subtexture['y']), int(subtexture['width']), int(subtexture['height']))))
     
     return textures

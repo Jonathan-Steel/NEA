@@ -27,7 +27,8 @@ class Tilemap:
         self.tiles = [pygame.transform.scale(tile, (self.tile_width, self.tile_height)) for tile in self.spritesheet]
         # self.tilemap = [[0 for i in range(self.width)] for i in range(self.height)]
         self.tilemap = self.read_tilemap('map.txt')
-        self.current_tile = 30
+        self.current_tile = 17
+        self.current_tile_input = ""
 
     def preview(self):
         for x in range(self.width):
@@ -61,6 +62,14 @@ class Tilemap:
                     string += str(tile) + '\t'
                 string += '\n'
                 myFile.write(string)
+
+    def change_current_tile(self):
+        if int(self.current_tile_input) < len(self.tiles):
+            self.current_tile = int(self.current_tile_input)
+            self.current_tile_input = ""
+        else:
+            print('Tile Number out of range!')
+        self.current_tile_input = ""
 
 class Game:
 
@@ -144,9 +153,19 @@ class Game:
                         # print("Hello")
                     elif self.start_game_button.hover == True:
                         self.mode = "Game"
-                # self.tilemap.change_tile(event.pos[0] // self.tilemap.tile_width, event.pos[1] // self.tilemap.tile_height)
 
-            # if event.type == pygame.KEYDOWN:
+                elif self.mode == "Map Editor":
+                    self.tilemap.change_tile(event.pos[0] // self.tilemap.tile_width, event.pos[1] // self.tilemap.tile_height)
+
+            if event.type == pygame.KEYDOWN:
+                if self.mode == "Map Editor":
+                    keys = pygame.key.get_pressed()
+
+                    if keys[pygame.K_0] or keys[pygame.K_1] or keys[pygame.K_2] or keys[pygame.K_3] or keys[pygame.K_4] or keys[pygame.K_5] or keys[pygame.K_6] or keys[pygame.K_7] or keys[pygame.K_8] or keys[pygame.K_9]:
+                        self.tilemap.current_tile_input += chr(event.key)
+                        print(self.tilemap.current_tile_input)
+                    elif keys[pygame.K_RETURN]:
+                        self.tilemap.change_current_tile()
 
             #     if event.unicode in [str(i) for i in range(7)]:
             #         self.tilemap.current_tile = int(event.unicode)
@@ -168,6 +187,9 @@ class Game:
         elif self.mode == "Game":
             self.game_sprites.update()
 
+        elif self.mode == "Map Editor":
+            pass
+
     # Draws objects to screen
     def draw(self):
         self.screen.fill(WHITE)
@@ -183,13 +205,19 @@ class Game:
         elif self.mode == "Game":
             self.tilemap.display_tiles()
 
-            self.tilemap.preview()
+            # self.tilemap.preview()
 
             self.all_sprites.draw(self.screen)
 
             pygame.draw.rect(self.screen, RED, self.player.rect, 3)
 
             self.blit_text(*get_text(f"a = ({self.player.a[0]}, {self.player.a[1]}), v = ({int(self.player.v[0])}, {int(self.player.v[1])}), s = ({int(self.player.s[0])}, {int(self.player.s[1])}), theta = {self.player.theta}", colour=BLACK, size=14))
+
+        elif self.mode == "Map Editor":
+            self.tilemap.display_tiles()
+            self.tilemap.preview()
+
+            # Tiles Palette
 
         # After drawing everything flip the display
         pygame.display.flip()

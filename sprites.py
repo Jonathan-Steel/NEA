@@ -44,7 +44,7 @@ class Player(pygame.sprite.Sprite):
         self.accelerate()
 
         if self.a[0] == 0 and self.a[1] == 0 and delta_theta != 0:
-            self.alpha = (self.v_magnitude / 100) * np.array([[math.cos(self.theta * (math.pi / 180))], [-math.sin(self.theta * (math.pi / 180))]])
+            self.alpha = (self.v_magnitude / 10) * np.array([[math.cos(self.theta * (math.pi / 180))], [-math.sin(self.theta * (math.pi / 180))]])
         else:
             self.alpha = np.array([[0.0], [0.0]])
 
@@ -84,7 +84,10 @@ class Player(pygame.sprite.Sprite):
         else:
             self.a *= 0
             
-
-# player = Player('')
-
-# print(player.s)
+class Wall(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.rect = pygame.Rect((self.x * 32, self.y * 32 + 16), (self.x * 32 + 16, self.y * 32), 32, 32)
+    def draw(self, surface):
+        pygame.draw.rect(surface, (255, 0, 0, 50), self.rect)
