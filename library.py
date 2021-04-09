@@ -65,3 +65,32 @@ class Button:
         else:
             self.bgColor = self.originalColor
             self.hover = False
+
+class InputBox:
+    def __init__(self, game, x, y, fontsize=24, bgColor=BLACK, textColor=WHITE, placeholder="Enter text here"):
+        self.x = x
+        self.y = y
+        self.fontsize = fontsize
+        self.originalColor = bgColor
+        self.bgColor = self.originalColor
+        self.textColor = textColor
+        self.placeholder = placeholder
+        self.game = game
+        self.hover = False
+        self.content = ""
+
+        self.textSurf, self.textRect = get_text(self.placeholder, colour=self.textColor, size=self.fontsize, x=self.x, y=self.y)
+
+    def draw(self, screen):
+        pygame.draw.rect(screen, self.bgColor, self.textRect, 0)
+        screen.blit(self.textSurf, self.textRect)
+
+    def update(self):
+        # Hover
+        mouse_x, mouse_y = self.game.mouse_position
+        if mouse_x >= self.textRect.left and mouse_x <= self.textRect.right and mouse_y >= self.textRect.top and mouse_y <= self.textRect.bottom:
+            self.bgColor = RED
+            self.hover = True
+        else:
+            self.bgColor = self.originalColor
+            self.hover = False

@@ -87,25 +87,40 @@ class Game:
         pygame.display.set_caption(TITLE)
 
         self.tilemap = Tilemap(tile_width=32, tile_height=32, width=48, height=27, game=self)
-
-    def main_menu(self):
-        pass
     
-    # Starts a new game (round)
-    def new(self):
-        # Initialises a general sprite group
-        self.all_sprites = pygame.sprite.Group()
-        # self.menu_sprites = pygame.sprite.Group()
+    def main_menu(self):
+        # MAIN MENU MODE
         self.menu_buttons = []
-        self.game_sprites = pygame.sprite.Group()
-
-        # self.main_menu_header = get_text(text='NEA', size=128, y=300)
         self.map_editor_button = Button(game=self, x=(WIDTH // 2 - 100), y=HEIGHT // 2, text="Map Editor")
         self.menu_buttons.append(self.map_editor_button)
 
         self.start_game_button = Button(game=self, x=(WIDTH // 2 + 100), y=HEIGHT // 2, text="Start Game")
         self.menu_buttons.append(self.start_game_button)
 
+        self.login_button = Button(game=self, x=(WIDTH // 2 - 100), y=(HEIGHT // 2 + 100), text="Login")
+        self.menu_buttons.append(self.login_button)
+
+        self.register_button = Button(game=self, x=(WIDTH // 2 + 100), y=(HEIGHT // 2 + 100), text="Register")
+        self.menu_buttons.append(self.register_button)
+
+    def login(self):
+        username_input = InputBox(game=self, x=(WIDTH // 2 - 100), y=(HEIGHT // 2), placeholder="Username")
+        password_input = InputBox(game=self, x=(WIDTH // 2 + 100), y=(HEIGHT // 2), placeholder="Password")
+
+
+    # Starts a new game (round)
+    def new(self):
+        # Initialises a general sprite group
+        self.all_sprites = pygame.sprite.Group()
+        # self.menu_sprites = pygame.sprite.Group()
+        
+        self.game_sprites = pygame.sprite.Group()
+        # self.walls = pygame.sprite.Group()
+        self.walls = self.read_walls()
+
+        self.main_menu()
+
+        # GAME MODE
         self.player = Player(self)
         self.all_sprites.add(self.player)
         self.game_sprites.add(self.player)
@@ -147,15 +162,28 @@ class Game:
                 self.mouse_position = event.pos
 
             if event.type == pygame.MOUSEBUTTONUP:
+                current_coords = (event.pos[0] // self.tilemap.tile_width, event.pos[1] // self.tilemap.tile_height)
+
                 if self.mode == "Main Menu":
                     if self.map_editor_button.hover == True:
                         self.mode = "Map Editor"
-                        # print("Hello")
                     elif self.start_game_button.hover == True:
                         self.mode = "Game"
+                    elif self.login_button.hover == True:
+                        self.mode = "Login"
+                    elif self.register_button.hover == True:
+                        self.mode = "Register"
 
                 elif self.mode == "Map Editor":
                     self.tilemap.change_tile(event.pos[0] // self.tilemap.tile_width, event.pos[1] // self.tilemap.tile_height)
+
+                elif self.mode == "Walls Editor":
+                    if not(current_coords in self.walls):
+                        self.walls[current_coords] = (Wall(current_coords[0], current_coords[1]))
+
+                elif self.mode == "Walls Editor (Eraser Mode)":
+                    if current_coords in self.walls:
+                        self.walls.pop(current_coords)
 
             if event.type == pygame.KEYDOWN:
                 if self.mode == "Map Editor":
@@ -167,22 +195,34 @@ class Game:
                     elif keys[pygame.K_RETURN]:
                         self.tilemap.change_current_tile()
 
+                    elif self.tilemap.current_tile_input == "" and keys[pygame.K_w]:
+                        self.mode = "Walls Editor"
+
+                    elif keys[pygame.K_ESCAPE]:
+                        self.mode = "Main Menu"
+                
+                elif self.mode == "Walls Editor" or self.mode == "Walls Editor (Eraser Mode)":
+                    keys = pygame.key.get_pressed()
+                    if keys[pygame.K_ESCAPE]:
+                        self.write_walls()
+                        self.mode = "Map Editor"
+                    elif keys[pygame.K_e]:
+                        if self.mode == "Walls Editor":
+                            self.mode = "Walls Editor (Eraser Mode)"
+                        else:
+                            self.mode = "Walls Editor"
+
             #     if event.unicode in [str(i) for i in range(7)]:
             #         self.tilemap.current_tile = int(event.unicode)
 
     # Updates sprites
     def update(self):
+        pygame.display.set_caption(TITLE + " - " + self.mode)
         if self.mode == "Main Menu":
-            self.map_editor_button.update()
-            # if self.map_editor_button.clicked:
-            #     self.map_editor_button.clicked = False
-            #     self.mode = "Map Editor"
-
-            self.start_game_button.update()
-            # if self.start_game_button.clicked:
-            #     self.start_game_button.clicked = False
-            #     self.mode = "Game"
-            #     print(self.mode)
+            for button in self.menu_buttons:
+                button.update()
+            # self.map_editor_button.update()
+            # self.start_game_button.update()
 
         elif self.mode == "Game":
             self.game_sprites.update()
@@ -197,26 +237,38 @@ class Game:
         if self.mode == "Main Menu":
             self.blit_text(*get_text(text='NEA', size=128, y=300))
 
-            self.map_editor_button.draw(self.screen)
-            self.start_game_button.draw(self.screen)
+            for button in self.menu_buttons:
+                button.draw(self.screen)
+
+            # self.map_editor_button.draw(self.screen)
+            # self.start_game_button.draw(self.screen)
 
             # self.menu_sprites.draw(self.screen)
 
         elif self.mode == "Game":
             self.tilemap.display_tiles()
 
-            # self.tilemap.preview()
+            self.tilemap.preview()
+
+            for key in self.walls:
+                self.walls[key].draw(self.screen)
 
             self.all_sprites.draw(self.screen)
 
             pygame.draw.rect(self.screen, RED, self.player.rect, 3)
 
-            self.blit_text(*get_text(f"a = ({self.player.a[0]}, {self.player.a[1]}), v = ({int(self.player.v[0])}, {int(self.player.v[1])}), s = ({int(self.player.s[0])}, {int(self.player.s[1])}), theta = {self.player.theta}", colour=BLACK, size=14))
+            self.blit_text(*get_text(f"a = ({self.player.a[0]}, {self.player.a[1]}), v = ({int(self.player.v[0])}, {int(self.player.v[1])}), s = ({int(self.player.s[0])}, {int(self.player.s[1])}), theta = {self.player.theta}, mouse position = {self.mouse_position}", colour=BLACK, size=18))
+            # self.blit_text(*get_text(f"v = {self.player.a} + {self.player.alpha} - {self.player.v / FRICTIONAL_COEFFICIENT} + {0.5 * self.player.v_magnitude * self.player.collision}", y=HEIGHT // 2 + 100, size=24))
+            self.blit_text(*get_text(f"v = {np.round(self.player.a, decimals=1)} + {np.round(self.player.alpha, decimals=1)} - FRICTION + {np.round(0.5 * self.player.v_magnitude * self.player.collision, decimals=1)}", y=HEIGHT // 2 + 100, size=24))
+            if self.player.collides:
+                self.blit_text(*get_text("Collides", colour=RED, size=100, y=(HEIGHT // 2 - 100)))
 
-        elif self.mode == "Map Editor":
+        elif self.mode == "Map Editor" or self.mode == "Walls Editor" or self.mode == "Walls Editor (Eraser Mode)":
             self.tilemap.display_tiles()
             self.tilemap.preview()
 
+            for key in self.walls:
+                self.walls[key].draw(self.screen)
             # Tiles Palette
 
         # After drawing everything flip the display
@@ -303,13 +355,27 @@ class Game:
 
         return theta
 
+    def write_walls(self):
+        with open('walls.txt', 'w') as myFile:
+            for wall in self.walls:
+                myFile.write(str(wall) + "\n")
+
+    def read_walls(self):
+        with open('walls.txt', 'r') as myFile:
+            walls = {}
+            for line in myFile:
+                line = line.strip('\n')
+                line = line.split(',')
+                x = int(line[0].strip("("))
+                y = int(line[1].strip(")"))
+                walls[(x, y)] = Wall(x, y)
+            return walls
+
 game = Game()
 
 game.show_start_screen()
 
 while game.running:
-
-    game.main_menu()
 
     game.new()
 

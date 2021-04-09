@@ -1,7 +1,7 @@
 WIDTH = 1536
 HEIGHT = 864
 
-FPS = 30
+FPS = 25
 
 TITLE = 'NEA'
 
