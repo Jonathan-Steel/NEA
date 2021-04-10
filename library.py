@@ -38,6 +38,9 @@ def get_text(text, colour=BLACK, size=36, x=(WIDTH/2), y=(HEIGHT/2), font='fonts
 
     return TextSurf, TextRect
 
+def clean_time(ticks):
+    return f"{int(ticks/60000 % 60):02d}:{int(ticks/1000 % 60):02d}:{ticks % 1000:02d}"
+
 class Button:
     def __init__(self, game, x, y, fontsize=24, text="New Button", bgColor=BLACK, textColor=WHITE):
         self.x = x
@@ -60,7 +63,7 @@ class Button:
     def update(self):
         mouse_x, mouse_y = self.game.mouse_position
         if mouse_x >= self.textRect.left and mouse_x <= self.textRect.right and mouse_y >= self.textRect.top and mouse_y <= self.textRect.bottom:
-            self.bgColor = RED
+            self.bgColor = GREY
             self.hover = True
         else:
             self.bgColor = self.originalColor
@@ -78,19 +81,45 @@ class InputBox:
         self.game = game
         self.hover = False
         self.content = ""
+        self.selected = False
 
         self.textSurf, self.textRect = get_text(self.placeholder, colour=self.textColor, size=self.fontsize, x=self.x, y=self.y)
 
     def draw(self, screen):
+        if self.content == "":
+            self.textSurf, self.textRect = get_text(self.placeholder, colour=self.textColor, size=self.fontsize, x=self.x, y=self.y)
+        else:
+            self.textSurf, self.textRect = get_text(self.content, colour=self.textColor, size=self.fontsize, x=self.x, y=self.y)
         pygame.draw.rect(screen, self.bgColor, self.textRect, 0)
         screen.blit(self.textSurf, self.textRect)
 
     def update(self):
+        self.check_hover()
+
+        # Selected
+        if not self.hover:
+            if self.selected:
+                self.bgColor = DARK_GREY
+            else:
+                self.bgColor = BLACK
+
+    def check_hover(self):
         # Hover
         mouse_x, mouse_y = self.game.mouse_position
         if mouse_x >= self.textRect.left and mouse_x <= self.textRect.right and mouse_y >= self.textRect.top and mouse_y <= self.textRect.bottom:
-            self.bgColor = RED
+            self.bgColor = GREY
             self.hover = True
         else:
-            self.bgColor = self.originalColor
             self.hover = False
+
+class PasswordBox(InputBox):
+    def __init__(self, game, x, y, fontsize=24, bgColor=BLACK, textColor=WHITE, placeholder="Enter text here"):
+        super().__init__(game, x, y, fontsize, bgColor, textColor, placeholder)
+    def draw(self, screen):
+        if self.content == "":
+            self.textSurf, self.textRect = get_text(self.placeholder, colour=self.textColor, size=self.fontsize, x=self.x, y=self.y)
+        else:
+            censor = "•" * len(self.content)
+            self.textSurf, self.textRect = get_text(censor, colour=self.textColor, size=self.fontsize, x=self.x, y=self.y)
+        pygame.draw.rect(screen, self.bgColor, self.textRect, 0)
+        screen.blit(self.textSurf, self.textRect)

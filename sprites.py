@@ -28,12 +28,15 @@ class Player(pygame.sprite.Sprite):
         self.rect.center = (int(self.s[0]), int(self.s[1]))
         self.theta = 0
         self.collides = False
+        self.checkpoint = "start"
         # self.hitboxes = [pygame.Rect(self.rect.left, self.rect.top)]
 
     def update(self):
         self.v_magnitude = np.linalg.norm(self.v)
 
         self.collision = self.collide()
+
+        self.update_checkpoint()
         
         # print(self.collision)
 
@@ -98,7 +101,7 @@ class Player(pygame.sprite.Sprite):
                 
                 self.collides = True
                 colliding_wall = self.game.walls[wall]
-                print(f"Collision detected with wall at {wall}!")
+                # print(f"Collision detected with wall at {wall}!")
 
                 # Left (of the wall)
                 if self.theta == 0:
@@ -209,15 +212,44 @@ class Player(pygame.sprite.Sprite):
                 self.collides = False
 
         return np.array([[0.0], [0.0]])
-            
+
+    def update_checkpoint(self):
+        if self.checkpoint == "midpoint":
+            for start_line in self.game.start_line:
+                if self.rect.colliderect(self.game.start_line[start_line]):
+                    self.checkpoint = "start"
+                    if len(self.game.lap_times) > 0:
+                        if ((self.game.delta_ticks - sum(self.game.lap_times))/1000 % 60) > 5:
+                            self.game.lap += 1
+                            self.game.lap_times.append(self.game.delta_ticks - sum(self.game.lap_times))
+                    else:
+                        self.game.lap += 1
+                        self.game.lap_times.append(self.game.delta_ticks)
+
+        elif self.checkpoint == "start":
+            for midpoint in self.game.midpoint_line:
+                if self.rect.colliderect(self.game.midpoint_line[midpoint]):
+                    self.checkpoint = "midpoint"
+
 class Wall(pygame.sprite.Sprite):
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self) # important to reference superclass
         self.x = x
         self.y = y
         self.rect = pygame.Rect(self.x * 32, self.y * 32, 32, 32)
+        self.color = RED
     def draw(self, surface):
         s = pygame.Surface((32, 32))
         s.set_alpha(128)
-        s.fill(RED)
+        s.fill(self.color)
         surface.blit(s, self.rect)
+
+class StartLine(Wall):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.color = GREEN
+
+class Midpoint(Wall):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.color = BLUE
