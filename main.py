@@ -2,6 +2,7 @@ import pygame
 import random
 import xml.etree.ElementTree as ET
 import math
+import sqlite3
 
 from settings import *
 from library import *
@@ -63,6 +64,48 @@ class Tilemap:
             print('Tile Number out of range!')
         self.current_tile_input = ""
 
+class DatabaseConnection:
+    def __init__(self, name):
+        self.name = name
+        self.conn = sqlite3.connect(name)
+        self.c = self.conn.cursor()
+    def commit(self):
+        self.conn.commit()
+    def close(self):
+        self.conn.close()
+    def select_all(self):
+        self.c.execute(f"SELECT * FROM {self.name[:-3]}")
+        return self.c.fetchall()
+    def delete_all(self):
+        with self.conn:
+            self.c.execute(f"DELETE FROM {self.name[:-3]}")
+        self.commit()
+
+class UserDatabase(DatabaseConnection):
+    def __init__(self, name):
+        super().__init__(name)
+
+    def insert_user(self, username, password):
+        with self.conn:
+            self.c.execute("INSERT INTO users VALUES (:username, :password)", {'username': username, 'password': password})
+        self.commit()
+    
+    def check_username(self, username):
+        self.c.execute("SELECT * FROM users WHERE username=:username", {'username': username})
+        if self.c.fetchone():
+            return True
+        else:
+            return False
+
+    def check_password(self, username, password):
+        self.c.execute("SELECT password FROM users WHERE username=:username", {'username': username})
+        passwords = self.c.fetchall()
+        # print(f"password = {password}, passwords[0][0] = {passwords[0][0]}")
+        return password == passwords[0][0]
+
+class User:
+    pass
+
 class Game:
 
     # Initialises the game
@@ -80,6 +123,15 @@ class Game:
 
         self.tilemap = Tilemap(tile_width=32, tile_height=32, width=48, height=27, game=self)
     
+    def setup_logged_out(self):
+        self.logged_out_buttons = []
+
+        self.login_button = Button(game=self, x=(WIDTH // 2 - 100), y=(HEIGHT // 2 + 100), text="Login")
+        self.logged_out_buttons.append(self.login_button)
+
+        self.register_button = Button(game=self, x=(WIDTH // 2 + 100), y=(HEIGHT // 2 + 100), text="Register")
+        self.logged_out_buttons.append(self.register_button)
+
     def main_menu(self):
         # MAIN MENU MODE
         self.menu_buttons = []
@@ -89,11 +141,11 @@ class Game:
         self.start_game_button = Button(game=self, x=(WIDTH // 2 + 100), y=HEIGHT // 2, text="Start Game")
         self.menu_buttons.append(self.start_game_button)
 
-        self.login_button = Button(game=self, x=(WIDTH // 2 - 100), y=(HEIGHT // 2 + 100), text="Login")
-        self.menu_buttons.append(self.login_button)
+        self.logout_button = Button(game=self, x=(WIDTH // 2 - 100), y=(HEIGHT // 2 + 36), text="Logout")
+        self.menu_buttons.append(self.logout_button)
 
-        self.register_button = Button(game=self, x=(WIDTH // 2 + 100), y=(HEIGHT // 2 + 100), text="Register")
-        self.menu_buttons.append(self.register_button)
+        self.groups_button = Button(game=self, x=(WIDTH // 2 + 100), y=(HEIGHT // 2 + 36), text="Groups")
+        self.menu_buttons.append(self.groups_button)
 
     def setup_login(self):
         self.login_boxes = []
@@ -146,6 +198,8 @@ class Game:
 
         self.main_menu()
 
+        self.setup_logged_out()
+
         self.setup_login()
 
         self.setup_register()
@@ -157,7 +211,8 @@ class Game:
 
         self.mouse_position = (0, 0)
 
-        self.mode = "Main Menu"
+        # self.mode = "Main Menu"
+        self.mode = "Logged out"
 
         self.run()
 
@@ -202,14 +257,23 @@ class Game:
                         self.mode = "Countdown"
                         # self.start_round()
                         # self.mode = "Game"
-                    elif self.login_button.hover == True:
+                    elif self.logout_button.hover == True:
+                        self.mode = "Logged out"
+                    elif self.groups_button.hover == True:
+                        # self.mode = "Groups Menu"
+                        pass
+                
+                elif self.mode == "Logged out":
+                    if self.login_button.hover == True:
                         self.mode = "Login"
                         self.username_input.content = ""
                         self.password_input.content = ""
+                        self.validation_message = ""
                     elif self.register_button.hover == True:
                         self.mode = "Register"
                         self.username_input.content = ""
                         self.password_input.content = ""
+                        self.validation_message = ""
 
                 elif self.mode == "Pause":
                     if self.end_race_button.hover == True:
@@ -219,21 +283,48 @@ class Game:
 
                 elif self.mode == "Login":
                     for box in self.login_boxes:
-                        if box.hover:
-                            box.selected = True
-                            for selected_box in self.login_boxes:
-                                if selected_box == box:
-                                    continue
-                                selected_box.selected = False
+                        if type(box) is InputBox or type(box) is PasswordBox:
+                            if box.hover:
+                                box.selected = True
+                                for selected_box in self.login_boxes:
+                                    if type(selected_box) is InputBox or type(selected_box) is PasswordBox:
+                                        if selected_box == box:
+                                            continue
+                                        selected_box.selected = False
+                        elif box == self.submit_button and box.hover:
+                            # Query database
+                            if user_database.check_username(self.username_input.content):
+                                # print(user_database.check_password(self.username_input.content, self.password_input.content))
+                                if user_database.check_password(self.username_input.content, self.password_input.content):
+                                    # Successfully logged in
+                                    self.mode = "Main Menu"
+                                else:
+                                    # Display "username or password incorrect"
+                                    self.validation_message = "Username or password was incorrect (password)"
+                            else:
+                                # Display "username or password incorrect"
+                                self.validation_message = "Username or password was incorrect (username)"
 
                 elif self.mode == "Register":
                     for box in self.register_boxes:
-                        if box.hover:
-                            box.selected = True
-                            for selected_box in self.register_boxes:
-                                if selected_box == box:
-                                    continue
-                                selected_box.selected = False
+                        if type(box) is InputBox or type(box) is PasswordBox:
+                            if box.hover:
+                                box.selected = True
+                                for selected_box in self.login_boxes:
+                                    if type(selected_box) is InputBox or type(selected_box) is PasswordBox:
+                                        if selected_box == box:
+                                            continue
+                                        selected_box.selected = False
+                        elif box == self.submit_button and box.hover:
+                            # Query database
+                            if not user_database.check_username(self.username_input.content):
+                                # Add to database
+                                user_database.insert_user(self.username_input.content, self.password_input.content)
+                                user_database.commit()
+                                self.mode = "Main Menu"
+                            else:
+                                # Username already taken
+                                self.validation_message = "That username is taken"
 
                 elif self.mode == "Map Editor":
                     self.tilemap.change_tile(event.pos[0] // self.tilemap.tile_width, event.pos[1] // self.tilemap.tile_height)
@@ -295,27 +386,29 @@ class Game:
                     
                 elif self.mode == "Login":
                     if keys[pygame.K_ESCAPE]:
-                        self.mode = "Main Menu"
+                        self.mode = "Logged out"
                     for box in self.login_boxes:
-                        if box.selected:
-                            if keys[pygame.K_ESCAPE]:
-                                box.selected = False
-                            elif keys[pygame.K_BACKSPACE] and len(box.content) > 0:
-                                box.content = box.content[:-1]
-                            else:
-                                box.content += event.unicode
+                        if type(box) is InputBox or type(box) is PasswordBox:
+                            if box.selected:
+                                if keys[pygame.K_ESCAPE]:
+                                    box.selected = False
+                                elif keys[pygame.K_BACKSPACE] and len(box.content) > 0:
+                                    box.content = box.content[:-1]
+                                else:
+                                    box.content += event.unicode
 
                 elif self.mode == "Register":
                     if keys[pygame.K_ESCAPE]:
-                        self.mode = "Main Menu"
+                        self.mode = "Logged out"
                     for box in self.register_boxes:
-                        if box.selected:
-                            if keys[pygame.K_ESCAPE]:
-                                box.selected = False
-                            elif keys[pygame.K_BACKSPACE] and len(box.content) > 0:
-                                box.content = box.content[:-1]
-                            else:
-                                box.content += event.unicode
+                        if type(box) is InputBox or type(box) is PasswordBox:
+                            if box.selected:
+                                if keys[pygame.K_ESCAPE]:
+                                    box.selected = False
+                                elif keys[pygame.K_BACKSPACE] and len(box.content) > 0:
+                                    box.content = box.content[:-1]
+                                else:
+                                    box.content += event.unicode
                 
                 elif self.mode == "Walls Editor" or self.mode == "Walls Editor (Eraser Mode)":
                     keys = pygame.key.get_pressed()
@@ -359,6 +452,10 @@ class Game:
         if self.mode == "Main Menu":
             for button in self.menu_buttons:
                 button.update()
+        
+        elif self.mode == "Logged out":
+            for button in self.logged_out_buttons:
+                button.update()
 
         elif self.mode == "Game":
             self.game_sprites.update()
@@ -393,6 +490,10 @@ class Game:
             self.blit_text(*get_text(text='NEA', size=128, y=300))
 
             for button in self.menu_buttons:
+                button.draw(self.screen)
+
+        elif self.mode == "Logged out":
+            for button in self.logged_out_buttons:
                 button.draw(self.screen)
 
         elif self.mode == "Game":
@@ -445,10 +546,12 @@ class Game:
         elif self.mode == "Login":
             for box in self.login_boxes:
                 box.draw(self.screen)
+            self.blit_text(*get_text(self.validation_message, y=HEIGHT/2 + 144))
 
         elif self.mode == "Register":
             for box in self.register_boxes:
                 box.draw(self.screen)
+            self.blit_text(*get_text(self.validation_message, y=HEIGHT/2 + 144))
 
         # After drawing everything flip the display
         pygame.display.flip()
@@ -594,7 +697,15 @@ class Game:
             output += ", " + clean_time(time)
         return output
 
+
 game = Game()
+
+user_database = UserDatabase('users.db')
+
+# user_database.delete_all()
+# user_database.commit()
+
+print(user_database.select_all())
 
 game.show_start_screen()
 
@@ -605,5 +716,7 @@ while game.running:
     # game.show_go_screen()
 
 game.tilemap.write_tilemap('map.txt')
+
+user_database.close()
 
 pygame.quit()
