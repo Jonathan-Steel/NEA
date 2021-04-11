@@ -27,3 +27,5 @@ EDITOR_MODES = [
     "Midpoint Editor",
     "Midpoint Editor (Eraser Mode)"
 ]
+
+TESTING_MODE = False

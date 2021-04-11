@@ -194,7 +194,7 @@ class Game:
         self.start_line = self.read_tile("start line")
         self.midpoint_line = self.read_tile("midpoint line")
 
-        self.end_race_button = Button(self, x=(WIDTH // 2), y=(HEIGHT // 2 + 72), text="Return to menu")
+        self.end_race_button = Button(self, x=(WIDTH // 2), y=(HEIGHT // 2 + 200), text="Return to menu")
 
         self.main_menu()
 
@@ -263,6 +263,12 @@ class Game:
                         # self.mode = "Groups Menu"
                         pass
                 
+                elif self.mode == "Game Over":
+                    if self.end_race_button.hover == True:
+                        self.game_sprites.remove(self.player)
+                        self.all_sprites.remove(self.player)
+                        self.mode = "Main Menu"
+
                 elif self.mode == "Logged out":
                     if self.login_button.hover == True:
                         self.mode = "Login"
@@ -460,6 +466,11 @@ class Game:
         elif self.mode == "Game":
             self.game_sprites.update()
             self.delta_ticks = pygame.time.get_ticks() - self.start_ticks - self.menu_ticks
+            if self.lap == 4 and len(self.lap_times) == 3:
+                self.mode = "Game Over"
+
+        elif self.mode == "Game Over":
+            self.end_race_button.update()
 
         elif self.mode == "Pause":
             self.menu_ticks = pygame.time.get_ticks() - self.delta_ticks
@@ -499,28 +510,45 @@ class Game:
         elif self.mode == "Game":
             self.tilemap.display_tiles()
 
-            self.tilemap.preview()
+            if TESTING_MODE:
+                self.tilemap.preview()
 
-            for key in self.walls:
-                self.walls[key].draw(self.screen)
-            for key in self.start_line:
-                self.start_line[key].draw(self.screen)
-            for key in self.midpoint_line:
-                self.midpoint_line[key].draw(self.screen)
+                for key in self.walls:
+                    self.walls[key].draw(self.screen)
+                for key in self.start_line:
+                    self.start_line[key].draw(self.screen)
+                for key in self.midpoint_line:
+                    self.midpoint_line[key].draw(self.screen)
 
             self.all_sprites.draw(self.screen)
 
-            pygame.draw.rect(self.screen, RED, self.player.rect, 3)
+            if TESTING_MODE:
+                pygame.draw.rect(self.screen, RED, self.player.rect, 3)
 
-            # self.blit_text(*get_text(f"a = ({self.player.a[0]}, {self.player.a[1]}), v = ({int(self.player.v[0])}, {int(self.player.v[1])}), s = ({int(self.player.s[0])}, {int(self.player.s[1])}), theta = {self.player.theta}, mouse position = {self.mouse_position}", colour=BLACK, size=18))
-            # self.blit_text(*get_text(f"v = {self.player.a} + {self.player.alpha} - {self.player.v / FRICTIONAL_COEFFICIENT} + {0.5 * self.player.v_magnitude * self.player.collision}", y=HEIGHT // 2 + 100, size=24))
-            # self.blit_text(*get_text(f"v = {np.round(self.player.a, decimals=1)} + {np.round(self.player.alpha, decimals=1)} - FRICTION + {np.round(0.5 * self.player.v_magnitude * self.player.collision, decimals=1)}", y=HEIGHT // 2 + 100, size=24))
-            self.blit_text(*get_text(f"Lap = {self.lap}, Checkpoint = {self.player.checkpoint}", y=HEIGHT // 2 + 100, size=24))
-            self.blit_text(*get_text(self.display_lap_times(), y=HEIGHT // 2 + 25, size=24))
-            self.blit_text(*get_text(clean_time(self.delta_ticks), size=18))
+                self.blit_text(*get_text(f"a = ({self.player.a[0]}, {self.player.a[1]}), v = ({int(self.player.v[0])}, {int(self.player.v[1])}), s = ({int(self.player.s[0])}, {int(self.player.s[1])}), theta = {self.player.theta}, mouse position = {self.mouse_position}", colour=BLACK, size=18))
+                self.blit_text(*get_text(f"v = {self.player.a} + {self.player.alpha} - {self.player.v / FRICTIONAL_COEFFICIENT} + {0.5 * self.player.v_magnitude * self.player.collision}", y=HEIGHT // 2 + 100, size=24))
+                self.blit_text(*get_text(f"v = {np.round(self.player.a, decimals=1)} + {np.round(self.player.alpha, decimals=1)} - FRICTION + {np.round(0.5 * self.player.v_magnitude * self.player.collision, decimals=1)}", y=HEIGHT // 2 + 100, size=24))
+                self.blit_text(*get_text(f"Lap = {self.lap}, Checkpoint = {self.player.checkpoint}", y=HEIGHT // 2 + 100, size=24))
 
-            if self.player.collides:
-                self.blit_text(*get_text("Collides", colour=RED, size=100, y=(HEIGHT // 2 - 100)))
+                if self.player.collides:
+                    self.blit_text(*get_text("Collides", colour=RED, size=100, y=(HEIGHT // 2 - 100)))
+
+            self.blit_text(*get_text(clean_time(self.delta_ticks), size=48, font='fonts/Lato-Bold.ttf', x=(WIDTH/2-350), y=(HEIGHT/2-120)))
+            self.blit_text(*get_text(self.display_lap_time(1), x=(WIDTH/2-350), y=(HEIGHT/2-80), size=28))
+            self.blit_text(*get_text(self.display_lap_time(2), x=(WIDTH/2-350), y=(HEIGHT/2-40), size=28))
+            self.blit_text(*get_text(self.display_lap_time(3), x=(WIDTH/2-350), y=(HEIGHT/2), size=28))
+
+            self.blit_text(*get_text(f"Lap {self.lap}/3", x=(WIDTH/2-350), y=(HEIGHT/2 + 50)))
+
+        
+        elif self.mode == "Game Over":
+            self.blit_text(*get_text("Race Complete", size=72, y=(HEIGHT / 2 - 180)))
+            self.blit_text(*get_text(clean_time(sum(self.lap_times)), size=48, font='fonts/Lato-Bold.ttf', x=(WIDTH/2), y=(HEIGHT/2-60)))
+            self.blit_text(*get_text(self.display_lap_time(1), x=(WIDTH/2), y=(HEIGHT/2-20), size=28))
+            self.blit_text(*get_text(self.display_lap_time(2), x=(WIDTH/2), y=(HEIGHT/2+20), size=28))
+            self.blit_text(*get_text(self.display_lap_time(3), x=(WIDTH/2), y=(HEIGHT/2+60), size=28))
+
+            self.end_race_button.draw(self.screen)
 
         elif self.mode in EDITOR_MODES:
             self.tilemap.display_tiles()
@@ -687,15 +715,20 @@ class Game:
         else:
             print("Tile Type Invalid!")
 
-    def display_lap_times(self):
-        if len(self.lap_times) == 0:
+    # def display_lap_times(self):
+    #     if len(self.lap_times) == 0:
+    #         return ""
+    #     output = f"Lap 1: {clean_time(self.lap_times[0])}"
+    #     for time in self.lap_times:
+    #         if self.lap_times.index(time) == 0:
+    #             continue
+    #         output += f"\nLap {self.lap_times.index(time) + 1}: " + clean_time(time)
+    #     return output
+
+    def display_lap_time(self, lap_no):
+        if lap_no > len(self.lap_times):
             return ""
-        output = f"{clean_time(self.lap_times[0])}"
-        for time in self.lap_times:
-            if self.lap_times.index(time) == 0:
-                continue
-            output += ", " + clean_time(time)
-        return output
+        return f"Lap {lap_no}: {clean_time(self.lap_times[lap_no - 1])}"
 
 
 game = Game()
