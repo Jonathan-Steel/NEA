@@ -1,21 +1,22 @@
 import sqlite3
 
-conn = sqlite3.connect("times.db")
+conn = sqlite3.connect("users.db")
 
 c = conn.cursor()
 
 # Code used to create the user table
-# c.execute("""CREATE TABLE users (
-#             username text,
-#             password text
-#             )""")
+c.execute("""CREATE TABLE users (
+            username text,
+            password text,
+            role text
+            )""")
 
 # Creating lap times table
-c.execute("""CREATE TABLE times (
-            username text,
-            time integer,
-            type text
-            )""")
+# c.execute("""CREATE TABLE times (
+#             username text,
+#             time integer,
+#             type text
+#             )""")
 
 # # c.execute("INSERT INTO users VALUES ('Jonathan', 'password')")
 

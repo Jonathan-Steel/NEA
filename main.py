@@ -86,9 +86,9 @@ class UserDatabase(DatabaseConnection):
     def __init__(self, name):
         super().__init__(name)
 
-    def insert_user(self, username, password):
+    def insert_user(self, username, password, role):
         with self.conn:
-            self.c.execute("INSERT INTO users VALUES (:username, :password)", {'username': username, 'password': password})
+            self.c.execute("INSERT INTO users VALUES (:username, :password, :role)", {'username': username, 'password': password, 'role': role})
         self.commit()
     
     def check_username(self, username):
@@ -122,8 +122,9 @@ class LapTimeDatabase(DatabaseConnection):
         return self.c.fetchall()
 
 class User:
-    def __init__(self, username):
+    def __init__(self, username, role):
         self.username = username
+        self.role = role
 
 class Game:
 
@@ -193,7 +194,11 @@ class Game:
         self.password_input.content = ""
         self.register_boxes.append(self.password_input)
 
-        self.register_boxes.append(self.submit_button)
+        self.student_button = Button(game=self, x=(WIDTH // 2 - 75), y=(HEIGHT // 2 + 96), text="Student")
+        self.register_boxes.append(self.student_button)
+
+        self.teacher_button = Button(game=self, x=(WIDTH // 2 + 75), y=(HEIGHT // 2 + 96), text="Teacher")
+        self.register_boxes.append(self.teacher_button)
 
     def start_round(self):
         self.player = Player(self)
@@ -350,14 +355,25 @@ class Game:
                                         if selected_box == box:
                                             continue
                                         selected_box.selected = False
-                        elif box == self.submit_button and box.hover:
+                        elif box == self.student_button and box.hover:
                             # Query database
                             if not user_database.check_username(self.username_input.content):
                                 # Add to database
-                                user_database.insert_user(self.username_input.content, bcrypt.hashpw(self.password_input.content.encode('utf8'), bcrypt.gensalt()))
+                                user_database.insert_user(self.username_input.content, bcrypt.hashpw(self.password_input.content.encode('utf8'), bcrypt.gensalt()), "Student")
                                 user_database.commit()
                                 self.mode = "Main Menu"
-                                self.user = User(self.username_input.content)
+                                self.user = User(self.username_input.content, "Student")
+                            else:
+                                # Username already taken
+                                self.validation_message = "That username is taken"
+                        elif box == self.teacher_button and box.hover:
+                            # Query database
+                            if not user_database.check_username(self.username_input.content):
+                                # Add to database
+                                user_database.insert_user(self.username_input.content, bcrypt.hashpw(self.password_input.content.encode('utf8'), bcrypt.gensalt()), "Teacher")
+                                user_database.commit()
+                                self.mode = "Main Menu"
+                                self.user = User(self.username_input.content, "Teacher")
                             else:
                                 # Username already taken
                                 self.validation_message = "That username is taken"
@@ -616,6 +632,7 @@ class Game:
         elif self.mode == "Register":
             for box in self.register_boxes:
                 box.draw(self.screen)
+            self.blit_text(*get_text("Role:", y=HEIGHT/2 + 48, size=24))
             self.blit_text(*get_text(self.validation_message, y=HEIGHT/2 + 144))
 
         elif self.mode == "Stats":

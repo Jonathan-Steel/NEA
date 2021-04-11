@@ -69,6 +69,16 @@ class Button:
             self.bgColor = self.originalColor
             self.hover = False
 
+# class CheckBox:
+#     def __init__(self, game, x, y, bgColor=BLACK):
+#         self.game = game
+#         self.x = x
+#         self.y = y
+#         self.bgColor = bgColor
+    
+#     def draw(self, screen):
+#         pygame.draw.rect(screen, self.bgColor, (), 0)
+
 class InputBox:
     def __init__(self, game, x, y, fontsize=24, bgColor=BLACK, textColor=WHITE, placeholder="Enter text here"):
         self.x = x
