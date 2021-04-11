@@ -1,6 +1,6 @@
 import sqlite3
 
-conn = sqlite3.connect("users.db")
+conn = sqlite3.connect("times.db")
 
 c = conn.cursor()
 
@@ -10,13 +10,20 @@ c = conn.cursor()
 #             password text
 #             )""")
 
-# c.execute("INSERT INTO users VALUES ('Jonathan', 'password')")
+# Creating lap times table
+c.execute("""CREATE TABLE times (
+            username text,
+            time integer,
+            type text
+            )""")
 
-# c.execute("INSERT INTO users VALUES (:username, :password)", {'username': 'Jonaldinho', 'password': 'password'})
+# # c.execute("INSERT INTO users VALUES ('Jonathan', 'password')")
 
-c.execute("SELECT * FROM users WHERE password=:password", {'password': 'password'})
+# # c.execute("INSERT INTO users VALUES (:username, :password)", {'username': 'Jonaldinho', 'password': 'password'})
 
-print(c.fetchall())
+# c.execute("SELECT * FROM users WHERE password=:password", {'password': 'password'})
+
+# print(c.fetchall())
 
 conn.commit()
 

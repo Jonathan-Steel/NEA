@@ -104,8 +104,26 @@ class UserDatabase(DatabaseConnection):
         # print(f"password = {password}, passwords[0][0] = {passwords[0][0]}")
         return bcrypt.checkpw(password.encode('utf8'), passwords[0][0])
 
+class LapTimeDatabase(DatabaseConnection):
+    def __init__(self, name):
+        super().__init__(name)
+
+    def insert_time(self, username, time, time_type):
+        with self.conn:
+            self.c.execute(f"INSERT INTO {self.name[:-3]} VALUES (:username, :time, :type)", {'username': username, 'time': time, 'type': time_type})
+        self.commit()
+    
+    def get_user_times(self, username):
+        self.c.execute(f"SELECT time, type FROM {self.name[:-3]} WHERE username=:username", {'username': username})
+        return self.c.fetchall()
+
+    def get_fastest_time(self, username, time_type):
+        self.c.execute(f"SELECT MIN(time) FROM {self.name[:-3]} WHERE username=:username AND type=:type", {'username': username, 'type': time_type})
+        return self.c.fetchall()
+
 class User:
-    pass
+    def __init__(self, username):
+        self.username = username
 
 class Game:
 
@@ -142,11 +160,17 @@ class Game:
         self.start_game_button = Button(game=self, x=(WIDTH // 2 + 100), y=HEIGHT // 2, text="Start Game")
         self.menu_buttons.append(self.start_game_button)
 
-        self.logout_button = Button(game=self, x=(WIDTH // 2 - 100), y=(HEIGHT // 2 + 36), text="Logout")
+        self.logout_button = Button(game=self, x=(WIDTH // 2 - 100), y=(HEIGHT // 2 + 48), text="Logout")
         self.menu_buttons.append(self.logout_button)
 
-        self.groups_button = Button(game=self, x=(WIDTH // 2 + 100), y=(HEIGHT // 2 + 36), text="Groups")
+        self.groups_button = Button(game=self, x=(WIDTH // 2 + 100), y=(HEIGHT // 2 + 48), text="Groups")
         self.menu_buttons.append(self.groups_button)
+
+        self.stats_button = Button(game=self, x=(WIDTH // 2 + 100), y=(HEIGHT // 2 + 96), text="Stats")
+        self.menu_buttons.append(self.stats_button)
+
+        self.options_button = Button(game=self, x=(WIDTH // 2 - 100), y=(HEIGHT // 2 + 96), text="Options")
+        self.menu_buttons.append(self.options_button)
 
     def setup_login(self):
         self.login_boxes = []
@@ -263,6 +287,10 @@ class Game:
                     elif self.groups_button.hover == True:
                         # self.mode = "Groups Menu"
                         pass
+                    elif self.stats_button.hover == True:
+                        self.mode = "Stats"
+                    elif self.options_button.hover == True:
+                        pass
                 
                 elif self.mode == "Game Over":
                     if self.end_race_button.hover == True:
@@ -304,6 +332,7 @@ class Game:
                                 if user_database.check_password(self.username_input.content, self.password_input.content):
                                     # Successfully logged in
                                     self.mode = "Main Menu"
+                                    self.user = User(self.username_input.content)
                                 else:
                                     # Display "username or password incorrect"
                                     self.validation_message = "Username or password was incorrect (password)"
@@ -328,6 +357,7 @@ class Game:
                                 user_database.insert_user(self.username_input.content, bcrypt.hashpw(self.password_input.content.encode('utf8'), bcrypt.gensalt()))
                                 user_database.commit()
                                 self.mode = "Main Menu"
+                                self.user = User(self.username_input.content)
                             else:
                                 # Username already taken
                                 self.validation_message = "That username is taken"
@@ -389,6 +419,10 @@ class Game:
                 elif self.mode == "Pause":
                     if keys[pygame.K_ESCAPE]:
                         self.mode = "Game"
+
+                elif self.mode == "Stats":
+                    if keys[pygame.K_ESCAPE]:
+                        self.mode = "Main Menu"
                     
                 elif self.mode == "Login":
                     if keys[pygame.K_ESCAPE]:
@@ -468,6 +502,9 @@ class Game:
             self.delta_ticks = pygame.time.get_ticks() - self.start_ticks - self.menu_ticks
             if self.lap == 4 and len(self.lap_times) == 3:
                 self.mode = "Game Over"
+                for time in self.lap_times:
+                    times_database.insert_time(self.user.username, time, "Lap")
+                times_database.insert_time(self.user.username, sum(self.lap_times), "Complete")
 
         elif self.mode == "Game Over":
             self.end_race_button.update()
@@ -581,6 +618,21 @@ class Game:
                 box.draw(self.screen)
             self.blit_text(*get_text(self.validation_message, y=HEIGHT/2 + 144))
 
+        elif self.mode == "Stats":
+            self.blit_text(*get_text("Stats", size=72, y=(HEIGHT / 2 - 144)))
+            self.blit_text(*get_text(self.user.username, size=36, y=(HEIGHT / 2 - 54)))
+
+            fastest_lap_time = times_database.get_fastest_time(self.user.username, "Lap")[0][0]
+            # print(f"fastest_lap_time: {fastest_lap_time}, type(fastest_lap_time): {type(fastest_lap_time)}, fastest_lap_time[0][0]: {fastest_lap_time[0][0]}")
+            if fastest_lap_time:
+                self.blit_text(*get_text(f"Fastest Lap Time: {clean_time(fastest_lap_time)}", size=24, y=(HEIGHT / 2 + 100)))
+            else:
+                self.blit_text(*get_text(f"Fastest Lap Time: No recorded times", size=24, y=(HEIGHT / 2 + 100)))
+            fastest_complete_time = times_database.get_fastest_time(self.user.username, "Complete")[0][0]
+            if fastest_complete_time:
+                self.blit_text(*get_text(f"Fastest Complete Time: {clean_time(fastest_complete_time)}", size=24, y=(HEIGHT / 2 + 136)))
+            else:
+                self.blit_text(*get_text(f"Fastest Complete Time: No recorded times", size=24, y=(HEIGHT / 2 + 136)))
         # After drawing everything flip the display
         pygame.display.flip()
 
@@ -725,10 +777,16 @@ game = Game()
 
 user_database = UserDatabase('users.db')
 
+times_database = LapTimeDatabase('times.db')
+
+# times_database.delete_all()
+# times_database.commit()
+
 # user_database.delete_all()
 # user_database.commit()
 
 print(user_database.select_all())
+print(times_database.select_all())
 
 game.show_start_screen()
 
