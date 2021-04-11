@@ -3,6 +3,7 @@ import random
 import xml.etree.ElementTree as ET
 import math
 import sqlite3
+import bcrypt
 
 from settings import *
 from library import *
@@ -101,7 +102,7 @@ class UserDatabase(DatabaseConnection):
         self.c.execute("SELECT password FROM users WHERE username=:username", {'username': username})
         passwords = self.c.fetchall()
         # print(f"password = {password}, passwords[0][0] = {passwords[0][0]}")
-        return password == passwords[0][0]
+        return bcrypt.checkpw(password.encode('utf8'), passwords[0][0])
 
 class User:
     pass
@@ -300,7 +301,6 @@ class Game:
                         elif box == self.submit_button and box.hover:
                             # Query database
                             if user_database.check_username(self.username_input.content):
-                                # print(user_database.check_password(self.username_input.content, self.password_input.content))
                                 if user_database.check_password(self.username_input.content, self.password_input.content):
                                     # Successfully logged in
                                     self.mode = "Main Menu"
@@ -325,7 +325,7 @@ class Game:
                             # Query database
                             if not user_database.check_username(self.username_input.content):
                                 # Add to database
-                                user_database.insert_user(self.username_input.content, self.password_input.content)
+                                user_database.insert_user(self.username_input.content, bcrypt.hashpw(self.password_input.content.encode('utf8'), bcrypt.gensalt()))
                                 user_database.commit()
                                 self.mode = "Main Menu"
                             else:
@@ -714,16 +714,6 @@ class Game:
                 return midpoint_line
         else:
             print("Tile Type Invalid!")
-
-    # def display_lap_times(self):
-    #     if len(self.lap_times) == 0:
-    #         return ""
-    #     output = f"Lap 1: {clean_time(self.lap_times[0])}"
-    #     for time in self.lap_times:
-    #         if self.lap_times.index(time) == 0:
-    #             continue
-    #         output += f"\nLap {self.lap_times.index(time) + 1}: " + clean_time(time)
-    #     return output
 
     def display_lap_time(self, lap_no):
         if lap_no > len(self.lap_times):
