@@ -279,8 +279,19 @@ class Game:
         self.teacher_button = Button(game=self, x=(WIDTH // 2 + 75), y=(HEIGHT // 2 + 96), text="Teacher")
         self.register_boxes.append(self.teacher_button)
 
+    def setup_options(self):
+        self.options_buttons = []
+
+        self.player_template = PlayerTemplate()
+
+        self.change_model_button = Button(game=self, x=(WIDTH // 2), y=(HEIGHT // 2 + 48), text="Change Model")
+        self.options_buttons.append(self.change_model_button)
+
+        self.change_colour_button = Button(game=self, x=(WIDTH // 2), y=(HEIGHT // 2 + 96), text="Change Colour")
+        self.options_buttons.append(self.change_colour_button)
+
     def start_round(self):
-        self.player = Player(self)
+        self.player = Player(self, self.car_model, self.car_colour)
         self.all_sprites.add(self.player)
         self.game_sprites.add(self.player)
 
@@ -330,6 +341,10 @@ class Game:
         self.setup_login()
 
         self.setup_register()
+
+        self.setup_options()
+        self.car_model = 0
+        self.car_colour = 0
 
         # GAME MODE
         # self.player = Player(self)
@@ -391,7 +406,7 @@ class Game:
                     elif self.stats_button.hover == True:
                         self.mode = "Stats"
                     elif self.options_button.hover == True:
-                        pass
+                        self.mode = "Options"
                 
                 elif self.mode == "Game Over":
                     if self.end_race_button.hover == True:
@@ -496,6 +511,11 @@ class Game:
                                 self.mode = "My Group"
                                 groups_database.get_leaderboards()
 
+                elif self.mode == "Options":
+                    if self.change_model_button.hover:
+                        self.player_template.next_sprite("Car")
+                    elif self.change_colour_button.hover:
+                        self.player_template.next_sprite("Colour")
 
                 elif self.mode == "Map Editor":
                     self.tilemap.change_tile(event.pos[0] // self.tilemap.tile_width, event.pos[1] // self.tilemap.tile_height)
@@ -636,6 +656,11 @@ class Game:
                     if keys[pygame.K_ESCAPE]:
                         self.mode = "Groups Menu"
 
+                elif self.mode == "Options":
+                    if keys[pygame.K_ESCAPE]:
+                        self.mode = "Main Menu"
+                        self.car_model, self.car_colour = self.player_template.return_final_changes()
+
     # Updates sprites
     def update(self):
         pygame.display.set_caption(TITLE + " - " + self.mode)
@@ -683,6 +708,11 @@ class Game:
         elif self.mode == "Groups Menu":
             for box in self.groups_boxes:
                 box.update()
+
+        elif self.mode == "Options":
+            for button in self.options_buttons:
+                button.update()
+            self.player_template.update()
 
     # Draws objects to screen
     def draw(self):
@@ -815,7 +845,11 @@ class Game:
                 name, time = complete_times[i]
                 self.blit_text(*get_text(f"{i + 1}. {name}: {clean_time(time)}", size=18, x=(WIDTH/2 + 400), y=(HEIGHT/2 + 24 * i)))
             
-
+        elif self.mode == "Options":
+            for button in self.options_buttons:
+                button.draw(self.screen)
+            self.player_template.draw(self.screen)
+        
         # After drawing everything flip the display
         pygame.display.flip()
 

@@ -9,15 +9,16 @@ from settings import *
 
 class Player(pygame.sprite.Sprite):
 
-    def __init__(self, game):
+    def __init__(self, game, car_model, colour):
         pygame.sprite.Sprite.__init__(self)
 
         self.game = game
+        self.car_model = car_model
+        self.colour = colour
 
         self.spritesheet = load_spritesheet('assets/original/Spritesheets/spritesheet_vehicles.png', 'assets/original/Spritesheets/spritesheet_vehicles.xml')
-        # self.original_image = self.spritesheet[3]
-        # self.image = pygame.transform.rotate(self.original_image, -90)
-        self.original_image = pygame.transform.rotate(pygame.transform.scale(self.spritesheet[3], (self.spritesheet[3].get_width() // 2, self.spritesheet[3].get_height() // 2)), -90)
+        self.image_file = self.spritesheet[self.colour * 10 + self.car_model]
+        self.original_image = pygame.transform.rotate(pygame.transform.scale(self.image_file, (self.image_file.get_width() // 2, self.image_file.get_height() // 2)), -90)
         self.image = self.original_image
         self.rect = self.image.get_rect()
 
@@ -25,11 +26,13 @@ class Player(pygame.sprite.Sprite):
         self.v = np.array([[0.0], [0.0]])
         self.const_a = 0
         self.a = np.array([[0.0], [0.0]])
+
         self.rect.center = (int(self.s[0]), int(self.s[1]))
+
         self.theta = 0
+
         self.collides = False
         self.checkpoint = "start"
-        # self.hitboxes = [pygame.Rect(self.rect.left, self.rect.top)]
 
     def update(self):
         self.v_magnitude = np.linalg.norm(self.v)
@@ -253,3 +256,54 @@ class Midpoint(Wall):
     def __init__(self, x, y):
         super().__init__(x, y)
         self.color = BLUE
+
+class PlayerTemplate:
+    def __init__(self):
+        self.cars = LinkedList(0)
+        self.cars.add(1)
+        self.cars.add(2)
+        self.cars.add(3)
+        self.cars.add(4)
+
+        self.colours = LinkedList(0)
+        self.colours.add(1)
+        self.colours.add(2)
+        self.colours.add(3)
+        self.colours.add(4)
+
+        self.car_model = self.cars.head_node
+        self.colour = self.colours.head_node
+
+        self.spritesheet = load_spritesheet('assets/original/Spritesheets/spritesheet_vehicles.png', 'assets/original/Spritesheets/spritesheet_vehicles.xml')
+        self.image_file = self.change_sprite()
+        self.image = pygame.transform.rotate(self.image_file, -90)
+        self.rect = self.image.get_rect()
+        self.rect.center = (WIDTH // 2, HEIGHT // 2)
+    
+    def change_sprite(self):
+        return self.spritesheet[self.colour.data * 10 + self.car_model.data]
+
+    def next_sprite(self, change):
+        if change == "Car":
+            if self.car_model.next_node:
+                self.car_model = self.car_model.next_node
+            else:
+                self.car_model = self.cars.head_node
+        elif change == "Colour":
+            if self.colour.next_node:
+                self.colour = self.colour.next_node
+            else:
+                self.colour = self.colours.head_node
+        self.change_sprite()
+
+    def return_final_changes(self):
+        return self.car_model.data, self.colour.data
+
+    def update(self):
+        self.image_file = self.change_sprite()
+        self.image = pygame.transform.rotate(self.image_file, -90)
+        self.rect = self.image.get_rect()
+        self.rect.center = (WIDTH // 2, HEIGHT // 2 - 100)
+
+    def draw(self, screen):
+        screen.blit(self.image, self.rect)

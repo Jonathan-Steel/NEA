@@ -124,18 +124,39 @@ class PasswordBox(InputBox):
         pygame.draw.rect(screen, self.bgColor, self.textRect, 0)
         screen.blit(self.textSurf, self.textRect)
 
-class HashTable:
-    def __init__(self, array_size):
-        self.array_size = array_size
+class Node:
+    def __init__(self, data, next_node=None):
+        self.data = data
+        self.next_node = next_node
+    # def __str__(self):
+    #     return f"{self.data} -> {self.next_node.data}"
 
-    def hash_key(self, key):
-        pass
+class LinkedList:
+    def __init__(self, value):
+        self.head_node = Node(value)
 
-    def assign(self, key, value):
-        if type(key) == "tuple":
-            pass
+    def __str__(self):
+        string = ""
+        current_node = self.head_node
+        while current_node:
+            if current_node.data != None:
+                string += str(current_node.data) + " -> "
+            current_node = current_node.next_node
+        return string
+
+    def add(self, value):
+        new_node = Node(value, self.head_node)
+        self.head_node = new_node
+
+    def remove(self, value_to_remove):
+        current_node = self.head_node
+        if current_node.data == value_to_remove:
+            self.head_node = current_node.next_node
         else:
-            print("Invalid key data type")
-
-    def retrieve(self, key):
-        pass
+            while current_node:
+                next_node = current_node.next_node
+                if next_node.data == value_to_remove:
+                    current_node.next_node = next_node.next_node
+                    current_node = None
+                else:
+                    current_node = next_node
