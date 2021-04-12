@@ -159,14 +159,23 @@ class GroupsDatabase(DatabaseConnection):
     def get_leaderboards(self):
         lap_times = self.get_best_times("Lap")
         complete_times = self.get_best_times("Complete")
-        print(lap_times, complete_times)
+        if len(lap_times) > 5:
+            return lap_times[:4], complete_times[:4]
+        else:
+            return lap_times, complete_times
 
     def get_best_times(self, time_type):
         if time_type == "Lap":
             self.c.execute(f"SELECT username, lap_time FROM {self.name[:-3]} ORDER BY lap_time")
         else:
             self.c.execute(f"SELECT username, complete_time FROM {self.name[:-3]} ORDER BY complete_time")
-        return self.c.fetchmany(self.count_users())
+        return self.c.fetchall()
+        # return self.c.fetchmany(self.count_users())
+        # if self.count_users() >= 5:
+        #     return self.c.fetchall()[:4]
+        # else:
+        #     print(self.c.fetchall())
+        #     return self.c.fetchall()
 
     def count_users(self):
         self.c.execute(f"SELECT COUNT(username) FROM {self.name[:-3]}")
@@ -623,8 +632,9 @@ class Game:
                             else:
                                 self.student_code_input.content += event.unicode
 
-            #     if event.unicode in [str(i) for i in range(7)]:
-            #         self.tilemap.current_tile = int(event.unicode)
+                elif self.mode == "My Group":
+                    if keys[pygame.K_ESCAPE]:
+                        self.mode = "Groups Menu"
 
     # Updates sprites
     def update(self):
@@ -792,7 +802,18 @@ class Game:
             else:
                 teacher_name = groups_database.get_teacher_name(self.user.username)
                 self.blit_text(*get_text(f"{teacher_name}'s Group", size=72, y=(HEIGHT / 2 - 144)))
-            # groups_database.get_leaderboards()
+
+            lap_times, complete_times = groups_database.get_leaderboards()
+            
+            self.blit_text(*get_text(f"Lap Times Leaderboard", size=36, x=(WIDTH/2 - 400), y=(HEIGHT / 2 - 48)))
+            for i in range(len(lap_times)):
+                name, time = lap_times[i]
+                self.blit_text(*get_text(f"{i + 1}. {name}: {clean_time(time)}", size=18, x=(WIDTH/2 - 400), y=(HEIGHT/2 + 24 * i)))
+
+            self.blit_text(*get_text(f"Complete Times Leaderboard", size=36, x=(WIDTH/2 + 400), y=(HEIGHT / 2 - 48)))
+            for i in range(len(complete_times)):
+                name, time = complete_times[i]
+                self.blit_text(*get_text(f"{i + 1}. {name}: {clean_time(time)}", size=18, x=(WIDTH/2 + 400), y=(HEIGHT/2 + 24 * i)))
             
 
         # After drawing everything flip the display

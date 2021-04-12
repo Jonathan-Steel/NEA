@@ -123,3 +123,19 @@ class PasswordBox(InputBox):
             self.textSurf, self.textRect = get_text(censor, colour=self.textColor, size=self.fontsize, x=self.x, y=self.y)
         pygame.draw.rect(screen, self.bgColor, self.textRect, 0)
         screen.blit(self.textSurf, self.textRect)
+
+class HashTable:
+    def __init__(self, array_size):
+        self.array_size = array_size
+
+    def hash_key(self, key):
+        pass
+
+    def assign(self, key, value):
+        if type(key) == "tuple":
+            pass
+        else:
+            print("Invalid key data type")
+
+    def retrieve(self, key):
+        pass
