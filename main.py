@@ -104,6 +104,10 @@ class UserDatabase(DatabaseConnection):
         # print(f"password = {password}, passwords[0][0] = {passwords[0][0]}")
         return bcrypt.checkpw(password.encode('utf8'), passwords[0][0])
 
+    def get_user_role(self, username):
+        self.c.execute("SELECT role FROM users WHERE username=:username", {'username': username})
+        return self.c.fetchall()
+
 class LapTimeDatabase(DatabaseConnection):
     def __init__(self, name):
         super().__init__(name)
@@ -121,10 +125,76 @@ class LapTimeDatabase(DatabaseConnection):
         self.c.execute(f"SELECT MIN(time) FROM {self.name[:-3]} WHERE username=:username AND type=:type", {'username': username, 'type': time_type})
         return self.c.fetchall()
 
+class GroupsDatabase(DatabaseConnection):
+    def __init__(self, name):
+        super().__init__(name)
+
+    def create_group(self, user):
+        with self.conn:
+            self.c.execute(f"INSERT INTO {self.name[:-3]} VALUES (:username, :role, :lap_time, :complete_time)", {'username': user.username, 'role': "Teacher", 'lap_time': user.get_fastest_time("Lap", True), 'complete_time': user.get_fastest_time("Complete", True)})
+        self.commit()
+
+    def add_user(self, code):
+        # Teacher enters a short code which can import a student into group quickly
+        code.strip(" ")
+        if "_" in code:
+            username, lap_time, complete_time = code.split("_")
+            with self.conn:
+                self.c.execute(f"INSERT INTO {self.name[:-3]} VALUES (:username, :role, :lap_time, :complete_time)", {'username': username, 'role': 'Student', 'lap_time': int(lap_time), 'complete_time': int(complete_time)})
+            self.commit()
+        else:
+            print("Invalid code")
+
+    def does_user_have_group(self, username):
+        self.c.execute(f"SELECT * FROM {self.name[:-3]} WHERE (:username=username)", {'username': username})
+        if self.c.fetchall():
+            return True
+        else:
+            return False
+
+    def get_teacher_name(self, student_username):
+        self.c.execute(f"SELECT username FROM {self.name[:-3]} WHERE (:role=role)", {'role': "Teacher"})
+        return self.c.fetchall()[0][0]
+
+    def get_leaderboards(self):
+        lap_times = self.get_best_times("Lap")
+        complete_times = self.get_best_times("Complete")
+        print(lap_times, complete_times)
+
+    def get_best_times(self, time_type):
+        if time_type == "Lap":
+            self.c.execute(f"SELECT username, lap_time FROM {self.name[:-3]} ORDER BY lap_time")
+        else:
+            self.c.execute(f"SELECT username, complete_time FROM {self.name[:-3]} ORDER BY complete_time")
+        return self.c.fetchmany(self.count_users())
+
+    def count_users(self):
+        self.c.execute(f"SELECT COUNT(username) FROM {self.name[:-3]}")
+        return self.c.fetchall()[0][0]
+
 class User:
     def __init__(self, username, role):
         self.username = username
         self.role = role
+        self.group_pending = False
+
+    def get_fastest_time(self, time_type, database_mode=False):
+        fastest_time = times_database.get_fastest_time(self.username, time_type)[0][0]
+        if database_mode:
+            if fastest_time:
+                return fastest_time
+            else:
+                return 0
+        else:
+            if fastest_time:
+                return clean_time(fastest_time)
+            else:
+                return "No recorded times"
+
+    def export_student_code(self):
+        fastest_lap_time = self.get_fastest_time("Lap", True)
+        fastest_complete_time = self.get_fastest_time("Complete", True)
+        return f"{self.username}_{fastest_lap_time}_{fastest_complete_time}"
 
 class Game:
 
@@ -212,6 +282,24 @@ class Game:
         self.delta_ticks = 0
         self.menu_ticks = 0
 
+    def setup_groups_menu(self):
+        self.groups_boxes = []
+
+        if groups_database.does_user_have_group(self.user.username):
+            self.my_group_button = Button(game=self, x=(WIDTH // 2), y=(HEIGHT // 2 - 36), text="My Group")
+            self.groups_boxes.append(self.my_group_button)
+
+        if self.user.role == "Teacher":
+            if groups_database.does_user_have_group(self.user.username):
+                self.student_code_input = InputBox(game=self, x=(WIDTH // 2), y=(HEIGHT // 2), placeholder="Enter Student Code Here")
+                self.groups_boxes.append(self.student_code_input)
+            else:
+                self.create_group_button = Button(game=self, x=(WIDTH // 2), y=(HEIGHT // 2), text="Create a Group")
+                self.groups_boxes.append(self.create_group_button)
+        else:
+            self.export_student_code_button = Button(game=self, x=(WIDTH // 2), y=(HEIGHT // 2), text="Export Student Code")
+            self.groups_boxes.append(self.export_student_code_button)
+
     # Starts a new game (round)
     def new(self):
         # Initialises a general sprite group
@@ -290,8 +378,7 @@ class Game:
                     elif self.logout_button.hover == True:
                         self.mode = "Logged out"
                     elif self.groups_button.hover == True:
-                        # self.mode = "Groups Menu"
-                        pass
+                        self.mode = "Groups Menu"
                     elif self.stats_button.hover == True:
                         self.mode = "Stats"
                     elif self.options_button.hover == True:
@@ -337,7 +424,8 @@ class Game:
                                 if user_database.check_password(self.username_input.content, self.password_input.content):
                                     # Successfully logged in
                                     self.mode = "Main Menu"
-                                    self.user = User(self.username_input.content)
+                                    self.user = User(self.username_input.content, user_database.get_user_role(self.username_input.content)[0][0])
+                                    self.setup_groups_menu()
                                 else:
                                     # Display "username or password incorrect"
                                     self.validation_message = "Username or password was incorrect (password)"
@@ -363,6 +451,7 @@ class Game:
                                 user_database.commit()
                                 self.mode = "Main Menu"
                                 self.user = User(self.username_input.content, "Student")
+                                self.setup_groups_menu()
                             else:
                                 # Username already taken
                                 self.validation_message = "That username is taken"
@@ -377,6 +466,27 @@ class Game:
                             else:
                                 # Username already taken
                                 self.validation_message = "That username is taken"
+
+                elif self.mode == "Groups Menu":
+                    if self.user.role == "Teacher":
+                        if groups_database.does_user_have_group(self.user.username):
+                            if self.student_code_input.hover:
+                                self.student_code_input.selected = True
+                            elif self.my_group_button.hover:
+                                self.mode = "My Group"
+                                groups_database.get_leaderboards()
+                        else:
+                            if self.create_group_button.hover:
+                                groups_database.create_group(self.user)
+                                self.user.group_pending = True
+                    else:
+                        if groups_database.does_user_have_group(self.user.username):
+                            if self.export_student_code_button.hover:
+                                print(self.user.export_student_code())
+                            elif self.my_group_button.hover:
+                                self.mode = "My Group"
+                                groups_database.get_leaderboards()
+
 
                 elif self.mode == "Map Editor":
                     self.tilemap.change_tile(event.pos[0] // self.tilemap.tile_width, event.pos[1] // self.tilemap.tile_height)
@@ -499,6 +609,20 @@ class Game:
                         else:
                             self.mode = "Midpoint Editor"
 
+                elif self.mode == "Groups Menu":
+                    if keys[pygame.K_ESCAPE]:
+                        self.mode = "Main Menu"
+                    if self.user.role == "Teacher" and groups_database.does_user_have_group(self.user.username) and not(self.user.group_pending):
+                        if self.student_code_input.selected:
+                            if keys[pygame.K_ESCAPE]:
+                                self.student_code_input.selected = False
+                            elif keys[pygame.K_BACKSPACE] and len(self.student_code_input.content) > 0:
+                                self.student_code_input.content = self.student_code_input.content[:-1]
+                            elif keys[pygame.K_RETURN] and len(self.student_code_input.content) > 0:
+                                groups_database.add_user(self.student_code_input.content)
+                            else:
+                                self.student_code_input.content += event.unicode
+
             #     if event.unicode in [str(i) for i in range(7)]:
             #         self.tilemap.current_tile = int(event.unicode)
 
@@ -545,6 +669,10 @@ class Game:
             if int(self.delta_ticks/1000 % 60) > 3:
                 self.start_round()
                 self.mode = "Game"
+        
+        elif self.mode == "Groups Menu":
+            for box in self.groups_boxes:
+                box.update()
 
     # Draws objects to screen
     def draw(self):
@@ -592,7 +720,6 @@ class Game:
             self.blit_text(*get_text(self.display_lap_time(3), x=(WIDTH/2-350), y=(HEIGHT/2), size=28))
 
             self.blit_text(*get_text(f"Lap {self.lap}/3", x=(WIDTH/2-350), y=(HEIGHT/2 + 50)))
-
         
         elif self.mode == "Game Over":
             self.blit_text(*get_text("Race Complete", size=72, y=(HEIGHT / 2 - 180)))
@@ -639,17 +766,35 @@ class Game:
             self.blit_text(*get_text("Stats", size=72, y=(HEIGHT / 2 - 144)))
             self.blit_text(*get_text(self.user.username, size=36, y=(HEIGHT / 2 - 54)))
 
-            fastest_lap_time = times_database.get_fastest_time(self.user.username, "Lap")[0][0]
-            # print(f"fastest_lap_time: {fastest_lap_time}, type(fastest_lap_time): {type(fastest_lap_time)}, fastest_lap_time[0][0]: {fastest_lap_time[0][0]}")
-            if fastest_lap_time:
-                self.blit_text(*get_text(f"Fastest Lap Time: {clean_time(fastest_lap_time)}", size=24, y=(HEIGHT / 2 + 100)))
+            # fastest_lap_time = times_database.get_fastest_time(self.user.username, "Lap")[0][0]
+            # # print(f"fastest_lap_time: {fastest_lap_time}, type(fastest_lap_time): {type(fastest_lap_time)}, fastest_lap_time[0][0]: {fastest_lap_time[0][0]}")
+            # if fastest_lap_time:
+            #     self.blit_text(*get_text(f"Fastest Lap Time: {clean_time(fastest_lap_time)}", size=24, y=(HEIGHT / 2 + 100)))
+            # else:
+            #     self.blit_text(*get_text(f"Fastest Lap Time: No recorded times", size=24, y=(HEIGHT / 2 + 100)))
+            fastest_lap_time = self.user.get_fastest_time("Lap")
+            self.blit_text(*get_text(f"Fastest Lap Time: {fastest_lap_time}", size=24, y=(HEIGHT / 2 + 100)))
+            # fastest_complete_time = times_database.get_fastest_time(self.user.username, "Complete")[0][0]
+            # if fastest_complete_time:
+            #     self.blit_text(*get_text(f"Fastest Complete Time: {clean_time(fastest_complete_time)}", size=24, y=(HEIGHT / 2 + 136)))
+            # else:
+            #     self.blit_text(*get_text(f"Fastest Complete Time: No recorded times", size=24, y=(HEIGHT / 2 + 136)))
+            fastest_complete_time = self.user.get_fastest_time("Complete")
+            self.blit_text(*get_text(f"Fastest Complete Time: {fastest_complete_time}", size=24, y=(HEIGHT / 2 + 136)))
+        
+        elif self.mode == "Groups Menu":
+            for box in self.groups_boxes:
+                box.draw(self.screen)
+
+        elif self.mode == "My Group":
+            if self.user.role == "Teacher":
+                self.blit_text(*get_text("My Group", size=72, y=(HEIGHT / 2 - 144)))
             else:
-                self.blit_text(*get_text(f"Fastest Lap Time: No recorded times", size=24, y=(HEIGHT / 2 + 100)))
-            fastest_complete_time = times_database.get_fastest_time(self.user.username, "Complete")[0][0]
-            if fastest_complete_time:
-                self.blit_text(*get_text(f"Fastest Complete Time: {clean_time(fastest_complete_time)}", size=24, y=(HEIGHT / 2 + 136)))
-            else:
-                self.blit_text(*get_text(f"Fastest Complete Time: No recorded times", size=24, y=(HEIGHT / 2 + 136)))
+                teacher_name = groups_database.get_teacher_name(self.user.username)
+                self.blit_text(*get_text(f"{teacher_name}'s Group", size=72, y=(HEIGHT / 2 - 144)))
+            # groups_database.get_leaderboards()
+            
+
         # After drawing everything flip the display
         pygame.display.flip()
 
@@ -796,6 +941,8 @@ user_database = UserDatabase('users.db')
 
 times_database = LapTimeDatabase('times.db')
 
+groups_database = GroupsDatabase('groups.db')
+
 # times_database.delete_all()
 # times_database.commit()
 
@@ -804,6 +951,7 @@ times_database = LapTimeDatabase('times.db')
 
 print(user_database.select_all())
 print(times_database.select_all())
+print(groups_database.select_all())
 
 game.show_start_screen()
 

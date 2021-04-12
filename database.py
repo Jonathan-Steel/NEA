@@ -1,14 +1,24 @@
 import sqlite3
 
-conn = sqlite3.connect("users.db")
+conn = sqlite3.connect("groups.db")
 
 c = conn.cursor()
 
 # Code used to create the user table
-c.execute("""CREATE TABLE users (
+# c.execute("""CREATE TABLE users (
+#             username text,
+#             password text,
+#             role text
+#             )""")
+
+# Creating groups database
+c.execute("DROP TABLE groups")
+
+c.execute("""CREATE TABLE groups (
             username text,
-            password text,
-            role text
+            role text,
+            lap_time integer,
+            complete_time integer
             )""")
 
 # Creating lap times table
