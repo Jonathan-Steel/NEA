@@ -1,9 +1,11 @@
+# Constants used within the game
+
 WIDTH = 1536
 HEIGHT = 864
 
 FPS = 25
 
-TITLE = 'NEA'
+TITLE = 'Racing Simluation'
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)

@@ -17,28 +17,32 @@ class Tilemap:
         self.width = width
         self.height = height
         self.game = game
-        self.spritesheet = load_spritesheet('assets/original/Spritesheets/spritesheet_tiles.png', 'assets/original/Spritesheets/spritesheet_tiles.xml')
+        self.spritesheet = load_spritesheet('assets/spritesheet_tiles.png', 'assets/spritesheet_tiles.xml')
         self.tiles = [pygame.transform.scale(tile, (self.tile_width, self.tile_height)) for tile in self.spritesheet]
         # self.tilemap = [[0 for i in range(self.width)] for i in range(self.height)]
-        self.tilemap = self.read_tilemap('map.txt')
+        self.tilemap = self.read_tilemap('text_files/map.txt')
         self.current_tile = 17
         self.current_tile_input = ""
 
     def preview(self):
+        """Displays a grid on the screen which is helpful to see where tiles should be placed within the tilemap."""
         for x in range(self.width):
             for y in range(self.height):
                 pygame.draw.line(self.game.screen, (55, 55, 55), (x*self.tile_width, y*self.tile_height), (x*self.tile_width, (y+1)*self.tile_height))
                 pygame.draw.line(self.game.screen, (55, 55, 55), (x*self.tile_width, y*self.tile_height), ((x+1)*self.tile_width, y*self.tile_height))
     
     def display_tiles(self):
+        """Displays the tiles on the screen"""
         for x in range(self.width):
             for y in range(self.height):
                 self.game.screen.blit(self.tiles[self.tilemap[y][x]], (x*self.tile_width, y*self.tile_height))
 
     def change_tile(self, x, y):
+        """Changes the tile at (x, y) to the current tile selected from the spritsheet."""
         self.tilemap[y][x] = self.current_tile
 
     def read_tilemap(self, filename):
+        """Reads the tilemap from a text file."""
         tilemap = []
         with open(filename, 'r') as myFile:
             for line in myFile:
@@ -49,6 +53,7 @@ class Tilemap:
         return tilemap
 
     def write_tilemap(self, filename):
+        """Writes the tilemap to a text file."""
         with open(filename, 'w') as myFile:
             for line in self.tilemap:
                 string = ''
@@ -58,6 +63,7 @@ class Tilemap:
                 myFile.write(string)
 
     def change_current_tile(self):
+        """Switches the current tile selected in the map editor mode."""
         if int(self.current_tile_input) < len(self.tiles):
             self.current_tile = int(self.current_tile_input)
             self.current_tile_input = ""
@@ -67,19 +73,23 @@ class Tilemap:
 
 class DatabaseConnection:
     def __init__(self, name):
-        self.name = name
+        self.name = name[9:-3]
         self.conn = sqlite3.connect(name)
         self.c = self.conn.cursor()
     def commit(self):
+        """Commits change to database."""
         self.conn.commit()
     def close(self):
+        """Closes the connection to the database."""
         self.conn.close()
     def select_all(self):
-        self.c.execute(f"SELECT * FROM {self.name[:-3]}")
+        """Selects all the records in the table."""
+        self.c.execute(f"SELECT * FROM {self.name}")
         return self.c.fetchall()
     def delete_all(self):
+        """Deletes all the records in the table."""
         with self.conn:
-            self.c.execute(f"DELETE FROM {self.name[:-3]}")
+            self.c.execute(f"DELETE FROM {self.name}")
         self.commit()
 
 class UserDatabase(DatabaseConnection):
@@ -87,11 +97,13 @@ class UserDatabase(DatabaseConnection):
         super().__init__(name)
 
     def insert_user(self, username, password, role):
+        """Adds a new user to the database."""
         with self.conn:
             self.c.execute("INSERT INTO users VALUES (:username, :password, :role)", {'username': username, 'password': password, 'role': role})
         self.commit()
     
     def check_username(self, username):
+        """Checks whether a username exists within the database."""
         self.c.execute("SELECT * FROM users WHERE username=:username", {'username': username})
         if self.c.fetchone():
             return True
@@ -99,12 +111,14 @@ class UserDatabase(DatabaseConnection):
             return False
 
     def check_password(self, username, password):
+        """Checks the hash of the password input against the hashed password for a given user."""
         self.c.execute("SELECT password FROM users WHERE username=:username", {'username': username})
         passwords = self.c.fetchall()
         # print(f"password = {password}, passwords[0][0] = {passwords[0][0]}")
         return bcrypt.checkpw(password.encode('utf8'), passwords[0][0])
 
     def get_user_role(self, username):
+        """Returns a user's role."""
         self.c.execute("SELECT role FROM users WHERE username=:username", {'username': username})
         return self.c.fetchall()
 
@@ -113,16 +127,19 @@ class LapTimeDatabase(DatabaseConnection):
         super().__init__(name)
 
     def insert_time(self, username, time, time_type):
+        """Inserts a lap time into the database for a given user."""
         with self.conn:
-            self.c.execute(f"INSERT INTO {self.name[:-3]} VALUES (:username, :time, :type)", {'username': username, 'time': time, 'type': time_type})
+            self.c.execute(f"INSERT INTO {self.name} VALUES (:username, :time, :type)", {'username': username, 'time': time, 'type': time_type})
         self.commit()
     
     def get_user_times(self, username):
-        self.c.execute(f"SELECT time, type FROM {self.name[:-3]} WHERE username=:username", {'username': username})
+        """Returns all the times for a given user."""
+        self.c.execute(f"SELECT time, type FROM {self.name} WHERE username=:username", {'username': username})
         return self.c.fetchall()
 
     def get_fastest_time(self, username, time_type):
-        self.c.execute(f"SELECT MIN(time) FROM {self.name[:-3]} WHERE username=:username AND type=:type", {'username': username, 'type': time_type})
+        """Returns the fastest time (either lap time or complete time) for a given user."""
+        self.c.execute(f"SELECT MIN(time) FROM {self.name} WHERE username=:username AND type=:type", {'username': username, 'type': time_type})
         return self.c.fetchall()
 
 class GroupsDatabase(DatabaseConnection):
@@ -130,33 +147,36 @@ class GroupsDatabase(DatabaseConnection):
         super().__init__(name)
 
     def create_group(self, user):
+        """Creates a new group in the database by adding the teacher to the groups database."""
         with self.conn:
-            self.c.execute(f"INSERT INTO {self.name[:-3]} VALUES (:username, :role, :lap_time, :complete_time)", {'username': user.username, 'role': "Teacher", 'lap_time': user.get_fastest_time("Lap", True), 'complete_time': user.get_fastest_time("Complete", True)})
+            self.c.execute(f"INSERT INTO {self.name} VALUES (:username, :role, :lap_time, :complete_time)", {'username': user.username, 'role': "Teacher", 'lap_time': user.get_fastest_time("Lap", True), 'complete_time': user.get_fastest_time("Complete", True)})
         self.commit()
 
     def add_user(self, code):
-        # Teacher enters a short code which can import a student into group quickly
+        """Teacher enters a short code which can import a student into group quickly"""
         code.strip(" ")
         if "_" in code:
             username, lap_time, complete_time = code.split("_")
             with self.conn:
-                self.c.execute(f"INSERT INTO {self.name[:-3]} VALUES (:username, :role, :lap_time, :complete_time)", {'username': username, 'role': 'Student', 'lap_time': int(lap_time), 'complete_time': int(complete_time)})
+                self.c.execute(f"INSERT INTO {self.name} VALUES (:username, :role, :lap_time, :complete_time)", {'username': username, 'role': 'Student', 'lap_time': int(lap_time), 'complete_time': int(complete_time)})
             self.commit()
         else:
             print("Invalid code")
 
     def does_user_have_group(self, username):
-        self.c.execute(f"SELECT * FROM {self.name[:-3]} WHERE (:username=username)", {'username': username})
+        self.c.execute(f"SELECT * FROM {self.name} WHERE (:username=username)", {'username': username})
         if self.c.fetchall():
             return True
         else:
             return False
 
     def get_teacher_name(self, student_username):
-        self.c.execute(f"SELECT username FROM {self.name[:-3]} WHERE (:role=role)", {'role': "Teacher"})
+        """Returns the teacher's name for a given student which shares the same group."""
+        self.c.execute(f"SELECT username FROM {self.name} WHERE (:role=role)", {'role': "Teacher"})
         return self.c.fetchall()[0][0]
 
     def get_leaderboards(self):
+        """Returns a leaderboard of the fastest times in each category for the current group."""
         lap_times = self.get_best_times("Lap")
         complete_times = self.get_best_times("Complete")
         if len(lap_times) > 5:
@@ -165,20 +185,16 @@ class GroupsDatabase(DatabaseConnection):
             return lap_times, complete_times
 
     def get_best_times(self, time_type):
+        """Returns the best times for use in the get_leaderboards methods."""
         if time_type == "Lap":
-            self.c.execute(f"SELECT username, lap_time FROM {self.name[:-3]} ORDER BY lap_time")
+            self.c.execute(f"SELECT username, lap_time FROM {self.name} ORDER BY lap_time")
         else:
-            self.c.execute(f"SELECT username, complete_time FROM {self.name[:-3]} ORDER BY complete_time")
+            self.c.execute(f"SELECT username, complete_time FROM {self.name} ORDER BY complete_time")
         return self.c.fetchall()
-        # return self.c.fetchmany(self.count_users())
-        # if self.count_users() >= 5:
-        #     return self.c.fetchall()[:4]
-        # else:
-        #     print(self.c.fetchall())
-        #     return self.c.fetchall()
 
     def count_users(self):
-        self.c.execute(f"SELECT COUNT(username) FROM {self.name[:-3]}")
+        """Counts the number of users within a group."""
+        self.c.execute(f"SELECT COUNT(username) FROM {self.name}")
         return self.c.fetchall()[0][0]
 
 class User:
@@ -188,6 +204,7 @@ class User:
         self.group_pending = False
 
     def get_fastest_time(self, time_type, database_mode=False):
+        """Returns the fastest (either lap or complete) time for the user to either be displayed in the game or added to the database."""
         fastest_time = times_database.get_fastest_time(self.username, time_type)[0][0]
         if database_mode:
             if fastest_time:
@@ -200,7 +217,9 @@ class User:
             else:
                 return "No recorded times"
 
-    def export_student_code(self):
+    def export_student_code(self): 
+        """Exports a code in the form {self.username}_{fastest_lap_time}_{fastest_complete_time}
+        so the student can be added to a group or times updated."""
         fastest_lap_time = self.get_fastest_time("Lap", True)
         fastest_complete_time = self.get_fastest_time("Complete", True)
         return f"{self.username}_{fastest_lap_time}_{fastest_complete_time}"
@@ -223,6 +242,7 @@ class Game:
         self.tilemap = Tilemap(tile_width=32, tile_height=32, width=48, height=27, game=self)
     
     def setup_logged_out(self):
+        """Instantiates all of the widgets in the logged out menu."""
         self.logged_out_buttons = []
 
         self.login_button = Button(game=self, x=(WIDTH // 2 - 100), y=(HEIGHT // 2 + 100), text="Login")
@@ -232,7 +252,7 @@ class Game:
         self.logged_out_buttons.append(self.register_button)
 
     def main_menu(self):
-        # MAIN MENU MODE
+        """Instantiates all of the widgets in the main menu."""
         self.menu_buttons = []
         self.map_editor_button = Button(game=self, x=(WIDTH // 2 - 100), y=HEIGHT // 2, text="Map Editor")
         self.menu_buttons.append(self.map_editor_button)
@@ -253,6 +273,7 @@ class Game:
         self.menu_buttons.append(self.options_button)
 
     def setup_login(self):
+        """Instantiates all of the widgets in the login menu."""
         self.login_boxes = []
 
         self.username_input = InputBox(game=self, x=(WIDTH // 2), y=(HEIGHT // 2 - 48), placeholder="Username")
@@ -265,6 +286,7 @@ class Game:
         self.login_boxes.append(self.submit_button)
 
     def setup_register(self):
+        """Instantiates all of the widgets in the register menu."""
         self.register_boxes = []
 
         self.username_input.content = ""
@@ -280,6 +302,7 @@ class Game:
         self.register_boxes.append(self.teacher_button)
 
     def setup_options(self):
+        """Instantiates all of the widgets in the logged out menu."""
         self.options_buttons = []
 
         self.player_template = PlayerTemplate()
@@ -291,6 +314,7 @@ class Game:
         self.options_buttons.append(self.change_colour_button)
 
     def start_round(self):
+        """Instantiates all of the objects in the game, sets up the lap counter and the timer."""
         self.player = Player(self, self.car_model, self.car_colour)
         self.all_sprites.add(self.player)
         self.game_sprites.add(self.player)
@@ -303,6 +327,7 @@ class Game:
         self.menu_ticks = 0
 
     def setup_groups_menu(self):
+        """Instantiates all of the widgets in the groups menu."""
         self.groups_boxes = []
 
         if groups_database.does_user_have_group(self.user.username):
@@ -322,6 +347,7 @@ class Game:
 
     # Starts a new game (round)
     def new(self):
+        """Instantiates generic widgets, calls all of the setup functions (see above) and sets the mode to the first screen (logged out)."""
         # Initialises a general sprite group
         self.all_sprites = pygame.sprite.Group()
         # self.menu_sprites = pygame.sprite.Group()
@@ -377,6 +403,7 @@ class Game:
 
     # Checks for events
     def events(self):
+        """Checks for any events (user interactions) occuring such as left clicking or pressing keys."""
         for event in pygame.event.get():
 
             # Close window
@@ -391,6 +418,7 @@ class Game:
             if event.type == pygame.MOUSEBUTTONUP:
                 current_coords = (event.pos[0] // self.tilemap.tile_width, event.pos[1] // self.tilemap.tile_height)
 
+                # Modes are used to know which objects are on the screen at once. Switching modes switches the screen.
                 if self.mode == "Main Menu":
                     if self.map_editor_button.hover == True:
                         self.mode = "Map Editor"
@@ -487,6 +515,7 @@ class Game:
                                 user_database.commit()
                                 self.mode = "Main Menu"
                                 self.user = User(self.username_input.content, "Teacher")
+                                self.setup_groups_menu()
                             else:
                                 # Username already taken
                                 self.validation_message = "That username is taken"
@@ -663,6 +692,7 @@ class Game:
 
     # Updates sprites
     def update(self):
+        """Updates (changes values) of all the sprites (objects) that on screen, for instance moving the car across the screen."""
         pygame.display.set_caption(TITLE + " - " + self.mode)
         if self.mode == "Main Menu":
             for button in self.menu_buttons:
@@ -716,10 +746,11 @@ class Game:
 
     # Draws objects to screen
     def draw(self):
+        """Draws (displays) all the sprites (objects) depending on the which mode (menu) is currently active."""
         self.screen.fill(WHITE)
 
         if self.mode == "Main Menu":
-            self.blit_text(*get_text(text='NEA', size=128, y=300))
+            self.blit_text(*get_text(text=TITLE, size=128, y=300))
 
             for button in self.menu_buttons:
                 button.draw(self.screen)
@@ -770,6 +801,7 @@ class Game:
 
             self.end_race_button.draw(self.screen)
 
+        # Handles all the variants of the map editor mode, such as the walls editor mode.
         elif self.mode in EDITOR_MODES:
             self.tilemap.display_tiles()
             self.tilemap.preview()
@@ -854,7 +886,7 @@ class Game:
         pygame.display.flip()
 
     def show_start_screen(self):
-
+        """Displays the first screen of the game before the game loop begins."""
         self.screen.fill(WHITE)
 
         # self.tilemap.current_tile = 17
@@ -876,16 +908,12 @@ class Game:
 
         self.wait_for_key()
 
-    def show_go_screen(self):
-        pass
-
-    def map_editor(self):
-        pass
-
     def blit_text(self, TextSurf, TextRect):
+        """Displays a text object on the screen."""
         self.screen.blit(TextSurf, TextRect)
 
     def wait_for_key(self):
+        """Waits until a key is pressed."""
         key_not_pressed = True
         while key_not_pressed:
             self.clock.tick(FPS)
@@ -897,8 +925,7 @@ class Game:
                     key_not_pressed = False
 
     def angle_between_player_and_mouse(self):
-
-        ## Player to Mouse Pointer Angle ##
+        """[Method Archived] Calculates the angle between the player and the mouse pointer."""
 
         delta_x = self.mouse_position[0] - int(self.player.s[0])
         delta_y = (self.mouse_position[1] - int(self.player.s[1])) * -1
@@ -935,24 +962,26 @@ class Game:
         return theta
 
     def write_tile(self, tile_type):
+        """Writes the positions of the special tiles on the screen to their respective text files."""
         if tile_type == "wall":
-            with open('walls.txt', 'w') as myFile:
+            with open('text_files/walls.txt', 'w') as myFile:
                 for wall in self.walls:
                     myFile.write(str(wall) + "\n")
         elif tile_type == "start line":
-            with open('start_line.txt', 'w') as myFile:
+            with open('text_files/start_line.txt', 'w') as myFile:
                 for start_line in self.start_line:
                     myFile.write(str(start_line) + "\n")
         elif tile_type == "midpoint line":
-            with open('midpoint_line.txt', 'w') as myFile:
+            with open('text_files/midpoint_line.txt', 'w') as myFile:
                 for midpoint_line in self.midpoint_line:
                     myFile.write(str(midpoint_line) + "\n")
         else:
             print("Tile Type Invalid!")
 
     def read_tile(self, tile_type):
+        """Reads the special tiles' positions from their text files."""
         if tile_type == "wall":
-            with open('walls.txt', 'r') as myFile:
+            with open('text_files/walls.txt', 'r') as myFile:
                 walls = {}
                 for line in myFile:
                     line = line.strip('\n')
@@ -962,7 +991,7 @@ class Game:
                     walls[(x, y)] = Wall(x, y)
                 return walls
         elif tile_type == "start line":
-            with open('start_line.txt', 'r') as myFile:
+            with open('text_files/start_line.txt', 'r') as myFile:
                 start_line = {}
                 for line in myFile:
                     line = line.strip('\n')
@@ -972,7 +1001,7 @@ class Game:
                     start_line[(x, y)] = StartLine(x, y)
                 return start_line
         elif tile_type == "midpoint line":
-            with open('midpoint_line.txt', 'r') as myFile:
+            with open('text_files/midpoint_line.txt', 'r') as myFile:
                 midpoint_line = {}
                 for line in myFile:
                     line = line.strip('\n')
@@ -985,6 +1014,7 @@ class Game:
             print("Tile Type Invalid!")
 
     def display_lap_time(self, lap_no):
+        """Displays lap times neatly."""
         if lap_no > len(self.lap_times):
             return ""
         return f"Lap {lap_no}: {clean_time(self.lap_times[lap_no - 1])}"
@@ -992,11 +1022,11 @@ class Game:
 
 game = Game()
 
-user_database = UserDatabase('users.db')
+user_database = UserDatabase('database/users.db')
 
-times_database = LapTimeDatabase('times.db')
+times_database = LapTimeDatabase('database/times.db')
 
-groups_database = GroupsDatabase('groups.db')
+groups_database = GroupsDatabase('database/groups.db')
 
 # times_database.delete_all()
 # times_database.commit()
@@ -1004,9 +1034,9 @@ groups_database = GroupsDatabase('groups.db')
 # user_database.delete_all()
 # user_database.commit()
 
-print(user_database.select_all())
-print(times_database.select_all())
-print(groups_database.select_all())
+# print(user_database.select_all())
+# print(times_database.select_all())
+# print(groups_database.select_all())
 
 game.show_start_screen()
 
@@ -1016,7 +1046,7 @@ while game.running:
 
     # game.show_go_screen()
 
-game.tilemap.write_tilemap('map.txt')
+game.tilemap.write_tilemap('text_files/map.txt')
 
 user_database.close()
 

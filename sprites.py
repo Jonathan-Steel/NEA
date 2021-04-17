@@ -8,7 +8,7 @@ from library import *
 from settings import *
 
 class Player(pygame.sprite.Sprite):
-
+    """Car Class"""
     def __init__(self, game, car_model, colour):
         pygame.sprite.Sprite.__init__(self)
 
@@ -16,12 +16,14 @@ class Player(pygame.sprite.Sprite):
         self.car_model = car_model
         self.colour = colour
 
-        self.spritesheet = load_spritesheet('assets/original/Spritesheets/spritesheet_vehicles.png', 'assets/original/Spritesheets/spritesheet_vehicles.xml')
+        # Loads the car's image from the spritesheet
+        self.spritesheet = load_spritesheet('assets/spritesheet_vehicles.png', 'assets/spritesheet_vehicles.xml')
         self.image_file = self.spritesheet[self.colour * 10 + self.car_model]
         self.original_image = pygame.transform.rotate(pygame.transform.scale(self.image_file, (self.image_file.get_width() // 2, self.image_file.get_height() // 2)), -90)
         self.image = self.original_image
         self.rect = self.image.get_rect()
 
+        # Sets up vectors for position (s), velocity (v), and acceleration (a)
         self.s = np.array([[335.], [785.]])
         self.v = np.array([[0.0], [0.0]])
         self.const_a = 0
@@ -35,6 +37,8 @@ class Player(pygame.sprite.Sprite):
         self.checkpoint = "start"
 
     def update(self):
+        """Updates the car's position based on its velocity which is calculated from the various forces acting on it.
+        For example, thrust (a), friction, torque (alpha), and the collision force."""
         self.v_magnitude = np.linalg.norm(self.v)
 
         self.collision = self.collide()
@@ -68,12 +72,13 @@ class Player(pygame.sprite.Sprite):
 
         if self.s[0] > WIDTH or self.s[0] < 0 or self.s[1] > HEIGHT or self.s[1] < 0:
             self.v *= 0
-            self.s = np.array([[335.], [785.]])
+            self.s = np.array([[350.], [785.]])
         
         else:
             self.rect.center = (int(self.s[0]), int(self.s[1]))
 
     def rotate(self, theta):
+        """Adjusts the car's image and hitbox in order to account for its rotation."""
         self.image = pygame.transform.rotate(self.original_image, self.theta)
         self.theta += theta
         self.theta %= 360
@@ -83,6 +88,7 @@ class Player(pygame.sprite.Sprite):
         # return rotated_image, new_rect
 
     def accelerate(self):
+        """Calculates the thrust on the car and the direction it acts on in order to return a vector."""
         keys = pygame.key.get_pressed()
 
         if keys[pygame.K_SPACE]:
@@ -98,6 +104,7 @@ class Player(pygame.sprite.Sprite):
             self.a *= 0
 
     def collide(self):
+        """Determines whether the car collides and then determines the direction of the normal force applied to it."""
         collision_tolerance = 0
         for wall in self.game.walls:
             if self.rect.colliderect(self.game.walls[wall]):
@@ -217,6 +224,7 @@ class Player(pygame.sprite.Sprite):
         return np.array([[0.0], [0.0]])
 
     def update_checkpoint(self):
+        """Checks whether the player has crossed a checkpoint."""
         if self.checkpoint == "midpoint":
             for start_line in self.game.start_line:
                 if self.rect.colliderect(self.game.start_line[start_line]):
@@ -242,6 +250,7 @@ class Wall(pygame.sprite.Sprite):
         self.rect = pygame.Rect(self.x * 32, self.y * 32, 32, 32)
         self.color = RED
     def draw(self, surface):
+        """Draws the wall on the screen for the map editor mode."""
         s = pygame.Surface((32, 32))
         s.set_alpha(128)
         s.fill(self.color)
@@ -259,6 +268,7 @@ class Midpoint(Wall):
 
 class PlayerTemplate:
     def __init__(self):
+        # Sets up a linked list of all the possible models of car
         self.cars = LinkedList(0)
         self.cars.add(1)
         self.cars.add(2)
@@ -274,16 +284,18 @@ class PlayerTemplate:
         self.car_model = self.cars.head_node
         self.colour = self.colours.head_node
 
-        self.spritesheet = load_spritesheet('assets/original/Spritesheets/spritesheet_vehicles.png', 'assets/original/Spritesheets/spritesheet_vehicles.xml')
+        self.spritesheet = load_spritesheet('assets/spritesheet_vehicles.png', 'assets/spritesheet_vehicles.xml')
         self.image_file = self.change_sprite()
         self.image = pygame.transform.rotate(self.image_file, -90)
         self.rect = self.image.get_rect()
         self.rect.center = (WIDTH // 2, HEIGHT // 2)
     
     def change_sprite(self):
+        """Switches which car sprite is displayed on the screen."""
         return self.spritesheet[self.colour.data * 10 + self.car_model.data]
 
     def next_sprite(self, change):
+        """Traverses the linked list to the next node in the list."""
         if change == "Car":
             if self.car_model.next_node:
                 self.car_model = self.car_model.next_node
@@ -297,13 +309,16 @@ class PlayerTemplate:
         self.change_sprite()
 
     def return_final_changes(self):
+        """Returns the final settings for the car"""
         return self.car_model.data, self.colour.data
 
     def update(self):
+        """Updates the images' rectangle to account for different car models of different sizes."""
         self.image_file = self.change_sprite()
         self.image = pygame.transform.rotate(self.image_file, -90)
         self.rect = self.image.get_rect()
         self.rect.center = (WIDTH // 2, HEIGHT // 2 - 100)
 
     def draw(self, screen):
+        """Draws the template to the screen."""
         screen.blit(self.image, self.rect)
