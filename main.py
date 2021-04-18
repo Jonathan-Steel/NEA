@@ -539,6 +539,9 @@ class Game:
                             elif self.my_group_button.hover:
                                 self.mode = "My Group"
                                 groups_database.get_leaderboards()
+                        else:
+                            if self.export_student_code_button.hover:
+                                print(self.user.export_student_code())
 
                 elif self.mode == "Options":
                     if self.change_model_button.hover:
@@ -1033,6 +1036,9 @@ groups_database = GroupsDatabase('database/groups.db')
 
 # user_database.delete_all()
 # user_database.commit()
+
+# groups_database.delete_all()
+# groups_database.commit()
 
 # print(user_database.select_all())
 # print(times_database.select_all())
